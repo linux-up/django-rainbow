@@ -21,10 +21,14 @@ Deployment of your projects require this simple charm. You will need create an i
 
 **Use:** 
 >Rename a copy of the stripe charm to something relavent to your Django project.  
+Change the *name* field in the *metadata.yaml* to something relavent to your project.  
 Edit the *config.yaml* file in the new stripe copy with your project information.  
+**Make sure that when the project repository is pulled onto the server, the DocumentRoot  
+directory listed in the virtual host is the base directory of the project. This may  
+require changing the project repository directory stucture or virtual host settings a bit.**  
 Deploy the stripe with a *juju deploy* command.  
-Add a relation to django-rainbow with a *juju add-relation django-rainbow stripe*  
-Don't forget to use a *juju expose django-rainbow* command to make it public
+Add a relation to django-rainbow with a *juju add-relation django-rainbow stripe-project*    
+Don't forget to use a *juju expose django-rainbow* command to make it public.  
 * * *
 
 

@@ -17,18 +17,6 @@ if [ -z "$app_type" ]; then
 fi
 
 
-if [ -e "/etc/apache2/sites-available/vhost_$app_source_package_name" ]; then
-     rm /etc/apache2/sites-available/vhost_$app_source_package_name
-fi
-
-juju-log "Writing virtual host to /etc/apache2/sites-available/vhost_$app_source_package_name"
-echo -e "$app_vhost \neof" | while read line; do
-if [ "$line" = "eof" ]; then
-     break;
-fi
-echo $line >> /etc/apache2/sites-available/vhost_$app_source_package_name
-done;
-
 repo_dir=""
 # Check /var/django_rainbow/installed_repos for current settings of stripe repository
 juju-log "Checking for stored project settings."
@@ -47,18 +35,31 @@ else
                repo_dir=""
            done </var/django_rainbow/installed_repos
 fi
-
-
 # If repo_dir is empty then this is the first time it will be pulled
 # and needs to be pulled to the temp directory --> /var/django_rainbow/temp_repo
 # It will then be moved to the directory defined in it's own data
 # This only happens once. After this the directory will be defined in -->
 # /var/django_rainbow/installed_repos
+
+
+     if [ -e "/var/django_rainbow/vhost_temp" ]; then
+          rm /var/django_rainbow/vhost_temp
+     fi
+     juju-log "Creating virtual host file."
+     echo -e "$app_vhost \neof" | while read line; do
+        if [ "$line" = "eof" ]; then
+               break;
+        fi
+        echo $line >> /var/django_rainbow/vhost_temp
+     done;
+
+
 if [ -z "$repo_dir" ]; then
      juju-log "Repository not found on server. Logging the new settings."
      # Only supports mercurial. Need to have bzr, git, and svn.
      # Fetch the project directory from the virtual host DocumentRoot setting
-     repo_dir="$(cat /etc/apache2/sites-available/vhost_$app_source_package_name | grep "DocumentRoot" | sed 's/\ *DocumentRoot\ *\(.*\)\ */\1/g')"
+
+     repo_dir="$(cat /var/django_rainbow/vhost_temp | grep "DocumentRoot" | sed 's/\ *DocumentRoot\ *\(.*\)\ */\1/g')"
      # Log the new repository locations
      echo "$repo_dir""^*^""$app_url" >> /var/django_rainbow/installed_repos
      if ! [ -e "$repo_dir" ]; then
@@ -81,7 +82,7 @@ bb.password = '"$app_pass"'' > .hg/hgrc
      fi # Endo if [ "$app_type" = "hg" ]; then
 else
      # cd to the directory listed in the DocumentRoot of the provided virtual host in the stripe
-1     cd $repo_dir
+     cd $repo_dir
      juju-log "Updating any project commits from repository $app_url."
      hg pull
      hg update
@@ -145,8 +146,9 @@ echo "grant all on $database_name.* to $database_user identified by '$database_p
 #mysqladmin --password="$password" flush-privileges
 
 python manage.py syncdb 
-
 open-port 80/tcp
+
+cp /var/django_rainbow/vhost_temp /etc/apache2/sites-available/vhost_$app_source_package_name
 a2ensite vhost_$app_source_package_name
 apache2ctl -k graceful
 

@@ -1,0 +1,13 @@
+options:
+    additional-debian-packages:
+        description: |
+            Additional debian packages to install (eg. python-django-south). This
+            string will be passed to apt-get.
+        type: string
+        default: ''
+    additional-pip-packages:
+        description: |
+            Additional python packages that are not yet available as Ubuntu/Debian
+            packages.
+        type: string
+        default: ''

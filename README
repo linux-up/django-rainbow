@@ -1,0 +1,74 @@
+**Django Rainbow** 
+--------
+* * * 
+`charm name: django-rainbow`
+
+*Django Rainbow* is desinged to deploy many differnt Django projects
+to cloud servers with end-users at the helm. Any Django project which resides
+on a hosted repository can be deployed using this charm. The entire prossess is automatized and allows scaling of a single project or many at the same time.   
+**Use:**
+>Simply deploy this charm with juju as a juju service with *juju deploy django-rainbow*. There are no packages to install on your client.
+
+* * *
+**REQUIRES:**
+
+`charm name: stripe`  
+
+Deployment of your projects require this simple charm. You will need create an individuality named copy of this charm for each Django project you plan to use and deploy. There is a simple config file in the parent directory called *config.yaml* to edit for each Django project. When both django-rainbow and stripe are deployed using juju, all that is needed to deploy the project is a *juju add-relation* command. This will trigger the relation-changed hook to:  
+>- pull a copy or update the project from the hosted repository  
+>- create a new virtual host provided in the stripe config.yaml file  
+>- parse the settings.py file and preform all necessary tasks to deploy your app  
+
+**Use:** 
+>Rename a copy of the stripe charm to something relavent to your Django project.  
+Edit the *config.yaml* file in the new stripe copy with your project information.  
+Deploy the stripe with a *juju deploy* command.  
+Add a relation to django-rainbow with a *juju add-relation django-rainbow stripe*  
+Don't forget to use a *juju expose django-rainbow* command to make it public
+* * *
+
+
+**LIMITATIONS:**
+Django Rainbow is still very new so don't expect too many options as of now.  
+*1)* Currently it only supports Mercurial and Bitbucket for project code hosting.  
+*2)* The only supported database is mysql.  
+*3)* There is no option to remove the project code or database entries from the service unit.  
+ *4)* Stripes do not have options to install extra packages.  
+
+Also, There may be a way to provide the config.yaml file to Django-rainbow. This would allow one to ditch the stripe charm all-together for an even simpler set-up.
+- - -
+
+**AUTHOR:**  
+Surgemcgee <RobertSteckroth@gmail.com>  
+Robert Edward Steckroth II
+* * * 
+**LICENCE:**  
+
+    Django Rainbow is a charm written for Juju
+    Copyright (C) 2012  Robert Edward Steckroth II
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see [http://www.gnu.org/licenses/](http://www.gnu.org/licenses/)
+
+
+
+
+
+
+
+
+
+
+
+
+

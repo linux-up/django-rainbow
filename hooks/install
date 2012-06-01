@@ -1,0 +1,79 @@
+#!/bin/bash
+
+# Created by Robert Edward Steckroth II, RobertSteckroth@gmail.com
+
+set -eux # -x for verbose logging to juju debug-log
+
+juju-log "Starting installation of Django-rainbow"
+
+additional_debian_packages=`config-get additional_debian_packages`
+additional_pip_packages=`config-get additional_pip_packages`
+
+
+if [ "$additional_debian_packages" ]; then
+    juju-log "Installing extra debian packages: $additional_debian_packages"
+    sudo apt-get -y install $additional_debian_packages
+fi
+
+if [ "$additional_pip_packages" ]; then
+    juju-log "Installing extra pip packages: $additional_pip_packages"
+    sudo pip install $additional_pip_packages
+fi
+
+if ! [ -e "/var/www/juju/sites" ]; then
+       mkdir -p /var/www/juju/sites
+fi
+
+if ! [ -e "/var/lib/juju/" ]; then
+       mkdir /var/lib/juju/
+fi
+
+if ! [ -e "/home/packages" ]; then
+       mkdir /home/packages
+fi
+
+
+cd /home/packages
+
+juju-log "Installing apache2 apache-wsgi and python dependencies via apt-get"
+
+apt-get -y install apache2 python-mysqldb libapache2-mod-wsgi mysql-client-core-5.5 git mercurial
+apt-get install -qqy debconf-utils pwgen
+
+
+if ! [ -e "django" ]; then 
+       git clone https://github.com/django/django.git
+       python django/setup.py install
+fi
+
+# Install Django registration. Can be commented out at next if statment
+if ! [ -e "django-registration" ]; then 
+       hg clone https://bitbucket.org/ubernostrum/django-registration
+       python django-registration/setup.py install
+fi
+
+
+# Generate a strong password for the mysql service, using /dev/urandom
+PASSWORD=`pwgen 10 1`
+
+# Store the password for later use by the db-relation-changed hook for this service unit.
+
+echo $PASSWORD > /var/lib/juju/mysql.passwd
+
+echo mysql-server-5.1 mysql-server/root_password password $PASSWORD | debconf-set-selections
+echo mysql-server-5.1 mysql-server/root_password_again password $PASSWORD | debconf-set-selections
+
+juju-log "mysql-server settings preseeded, now installing via apt-get"
+DEBIAN_FRONTEND=noninteractive apt-get -y install -qq mysql-server
+
+juju-log "Editing my.cnf to allow listening on all interfaces"
+sed --in-place=old 's/127\.0\.0\.1/0.0.0.0/' /etc/mysql/my.cnf
+
+#juju-log "Stopping mysql service"
+#service mysql stop
+
+a2dissite default
+
+/etc/init.d/apache2 restart
+
+

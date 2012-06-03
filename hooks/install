@@ -8,6 +8,7 @@ juju-log "Starting installation of Django-rainbow"
 
 additional_debian_packages=`config-get additional_debian_packages`
 additional_pip_packages=`config-get additional_pip_packages`
+reinstall_mysql=`config-get re-install-mysql-server`
 
 
 if [ "$additional_debian_packages" ]; then
@@ -18,10 +19,6 @@ fi
 if [ "$additional_pip_packages" ]; then
     juju-log "Installing extra pip packages: $additional_pip_packages"
     sudo pip install $additional_pip_packages
-fi
-
-if ! [ -e "/var/www/juju/sites" ]; then
-       mkdir -p /var/www/juju/sites
 fi
 
 if ! [ -e "/var/lib/juju/" ]; then
@@ -41,36 +38,42 @@ apt-get -y install apache2 python-mysqldb libapache2-mod-wsgi mysql-client-core-
 apt-get install -qqy debconf-utils pwgen
 
 
-if ! [ -e "django" ]; then 
-       git clone https://github.com/django/django.git
-       python django/setup.py install
+if ! [ -e "Django-1.4" ]; then 
+       wget https://www.djangoproject.com/download/1.4/tarball
+       tar -xvf tarball
+       python Django-1.4/setup.py install
 fi
 
 # Install Django registration. Can be commented out at next if statment
+# Needs to be in the stripe charm
+# This copy is revised to work with Django 1.4
+# Do not use official one on Bitbucket
 if ! [ -e "django-registration" ]; then 
-       hg clone https://bitbucket.org/ubernostrum/django-registration
+       wget http://www.pbdefence.com/static/files/django-registration.tar.bz2
+       tar xvf django-registration.tar.bz2
        python django-registration/setup.py install
 fi
 
 
-# Generate a strong password for the mysql service, using /dev/urandom
-PASSWORD=`pwgen 10 1`
+package="$(dpkg -s mysql-server | grep 'installed' 2> /dev/null)";
+juju-log "Checking for mysql-server: $package";
+if [ -n "$package" -a -n "$reinstall_mysql" -o -z "$package" ]; then
+     juju-log "Installing mysql-server"
+   # Generate a strong password for the mysql service, using /dev/urandom
+     PASSWORD=`pwgen 10 1`
+   # Store the password for later use by the db-relation-changed hook for this service unit.
+     echo $PASSWORD > /var/lib/juju/mysql.passwd
+     echo mysql-server-5.1 mysql-server/root_password password $PASSWORD | debconf-set-selections
+     echo mysql-server-5.1 mysql-server/root_password_again password $PASSWORD | debconf-set-selections
+     juju-log "mysql-server settings preseeded, now installing via apt-get"
+     DEBIAN_FRONTEND=noninteractive apt-get -y install -qq mysql-server
+     juju-log "Editing my.cnf to allow listening on all interfaces"
+     sed --in-place=old 's/127\.0\.0\.1/0.0.0.0/' /etc/mysql/my.cnf
+   # juju-log "Stopping mysql service"
+   # service mysql stop
+fi
 
-# Store the password for later use by the db-relation-changed hook for this service unit.
 
-echo $PASSWORD > /var/lib/juju/mysql.passwd
-
-echo mysql-server-5.1 mysql-server/root_password password $PASSWORD | debconf-set-selections
-echo mysql-server-5.1 mysql-server/root_password_again password $PASSWORD | debconf-set-selections
-
-juju-log "mysql-server settings preseeded, now installing via apt-get"
-DEBIAN_FRONTEND=noninteractive apt-get -y install -qq mysql-server
-
-juju-log "Editing my.cnf to allow listening on all interfaces"
-sed --in-place=old 's/127\.0\.0\.1/0.0.0.0/' /etc/mysql/my.cnf
-
-#juju-log "Stopping mysql service"
-#service mysql stop
 
 a2dissite default
 

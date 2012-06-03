@@ -11,3 +11,11 @@ options:
             packages.
         type: string
         default: ''
+    re-install-mysql-server:
+        description: |
+            Set this to true if you wish to have mysql removed and purged
+            from the instance. Happens when django-rainbow service is destroyed
+            and then re-deloyed. Leave empty for false and to keep old settings.
+        type: string
+        default: ''
+

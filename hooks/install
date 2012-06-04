@@ -34,7 +34,7 @@ cd /home/packages
 
 juju-log "Installing apache2 apache-wsgi and python dependencies via apt-get"
 
-apt-get -y install apache2 python-mysqldb libapache2-mod-wsgi mysql-client-core-5.5 git mercurial
+apt-get -y install apache2 python-mysqldb libapache2-mod-wsgi git mercurial
 apt-get install -qqy debconf-utils pwgen
 
 
@@ -54,11 +54,23 @@ if ! [ -e "django-registration" ]; then
        python django-registration/setup.py install
 fi
 
+juju-log "Checking for package mysql-server..."
+if ( dpkg -s mysql-server | grep installed 2> /dev/null ); then
+     juju-log "...installed"
+     package="installed"
+else
+     package=""
+     juju-log "...not installed"
+fi 
 
-package="$(dpkg -s mysql-server | grep 'installed' 2> /dev/null)";
-juju-log "Checking for mysql-server: $package";
-if [ -n "$package" -a -n "$reinstall_mysql" -o -z "$package" ]; then
-     juju-log "Installing mysql-server"
+
+if [ -z "$package" -o -n "$reinstall_mysql" ]; then
+     if [ -n "$package" ]; then
+          juju-log "Removing mysql-server, client, and all settings"
+          apt-get -qqy purge mysql-client-core-5.5 mysql-server 
+     fi
+     juju-log "Installing mysql-server and client"
+     apt-get -y install mysql-client-core-5.5
    # Generate a strong password for the mysql service, using /dev/urandom
      PASSWORD=`pwgen 10 1`
    # Store the password for later use by the db-relation-changed hook for this service unit.

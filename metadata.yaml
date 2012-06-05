@@ -2,11 +2,10 @@ name: django-rainbow
 summary: Installs Apache2, wsgi, mysql, Django, and Django-registration.
 maintainer: "Surgemcgee <RobertSteckroth@gmail.com>"
 description: |2
-  Django-rainbow is a primary service charm for other generic charms ussing the "stripe" template. Each of these stripes
-  will contain basic informatin on seperate Django projects at the clients host. This will provide an easy way to launch
-  your Django projects to the cloud and maintain them individually with juju on a single instance. If a stipe relationship is removed from
-  django-rainbow, all of the database settings and project code is removed leaving all other Django projects active. Mainly for development
-  needs and testing grounds but can be used to deploy and maintain many sites proffesionally.
+  Django-rainbow is a primary service charm for a generic charm called a "stripe". Each of these stripe templates
+  will contain basic informatin on seperate Django projects hosted on a repository. This will provide an easy way to launch
+  your Django projects to the cloud and maintain them individually with juju on a single instance. This charm is mainly
+  for development and testing but can be used to deploy and maintain many sites professionally.
 provides:
   rainbow:
     interface: django-rainbow

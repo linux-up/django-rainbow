@@ -11,11 +11,28 @@ options:
             packages.
         type: string
         default: ''
+    package-installation-directory:
+        description: |
+            The directory to install any provided packages in this config.
+        type: string
+        default: '/home/server-packages'
     re-install-mysql-server:
         description: |
-            Set this to true if you wish to have mysql removed and purged
-            from the instance. Happens when django-rainbow service is destroyed
-            and then re-deloyed. Leave empty for false and to keep old settings.
+            Set this to 'true' (or non-empty), if you wish to have mysql removed and purged
+            from the instance. This happens when django-rainbow service is destroyed
+            and then re-deloyed. Leave empty for false and keep any old settings.
         type: string
         default: ''
+    purge-instance:
+        description: |
+            Set this to 'true' (or non-empty), if you wish to have all packages
+            purged and re-installed. This includes any additional packages that are
+            listed above or have been installed previously. This happens when
+            django-rainbow service is destroyed and then re-deloyed. Leave empty for
+            false and keep any old settings.
+            --------------------------------------------------------------------
+            DOES NOT INCLUDE MYSQL! If you wan't to re-install mysql than set
+            the "re-install-mysql-server" to true.
+        type: string
+        default: 'true'
 

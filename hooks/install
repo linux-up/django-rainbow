@@ -9,34 +9,80 @@ juju-log "Starting installation of Django-rainbow"
 additional_debian_packages=`config-get additional_debian_packages`
 additional_pip_packages=`config-get additional_pip_packages`
 reinstall_mysql=`config-get re-install-mysql-server`
+purge_instance=`config-get purge-instance`
+package_directory=`config-get package-installation-directory`
 
+# Reinstall and store packages if specified in config with "purge_instance"
+if [ -n "$purge_instance" ]; then
+   # Remove tralling slash at the end for consitancy
+     package_directory="$(echo $package_directory | sed 's/\(.*\)\/$/\1/g')"
+   # Remove all stock packages
+     apt-get -y purge apache2 python-mysqldb libapache2-mod-wsgi git mercurial pwgen
+   # Re-install all stock packages
+     apt-get -y install apache2 python-mysqldb libapache2-mod-wsgi git mercurial
+     apt-get install -qqy pwgen
 
-if [ "$additional_debian_packages" ]; then
-    juju-log "Installing extra debian packages: $additional_debian_packages"
-    sudo apt-get -y install $additional_debian_packages
-fi
+     if ! [ -e "$package_directory" ]; then
+            mkdir $package_directory
+     fi
+     if ! [ -e "$package_directory/installed" ]; then
+            touch $package_directory/installed
+     fi
 
-if [ "$additional_pip_packages" ]; then
-    juju-log "Installing extra pip packages: $additional_pip_packages"
-    sudo pip install $additional_pip_packages
-fi
+   # Erase data and poplulate a temp file for listed packages
+     echo "" > $package_directory/temp_installed
+     for pkg in $(echo "$additional_debian_packages"); do
+         echo "$pkg" >> $package_directory/temp_installed
+     done;
 
-if ! [ -e "/var/lib/juju/" ]; then
-       mkdir /var/lib/juju/
-fi
+     # Installed file now contains any packages to be removed from previous install
+     for remove_pkg in $(cat $package_directory/installed); do
+         if [ -z "$remove_pkg" ]; then
+              # Dont need empty data
+              continue
+         fi
+         # Can't have spaces either
+         remove_pkg="$(echo "$remove_pkg" | sed 's/\ *//g')"
+         juju-log "Removing package $remove_pkg"
+         apt-get -y purge $remove_pkg
+      done;
 
-if ! [ -e "/home/packages" ]; then
-       mkdir /home/packages
-fi
+   # Add all packages to the installed file for next run re-installation
+     new_list="$(comm -13 <(sort $package_directory/installed) <(sort $package_directory/temp_installed))"
+     cp $package_directory/temp_installed $package_directory/installed
 
+   # Installed file now contains all packages to be installed now
+     for install_pkg in $(cat $package_directory/installed); do
+         if [ -z "$install_pkg" ]; then
+              # Dont need empty data
+              continue
+         fi
+         # Can't have spaces either
+         install_pkg="$(echo "$install_pkg" | sed 's/\ *//g')"
+         juju-log "Installing package $install_pkg"
+         apt-get -y install $install_pkg
+     done;
+elif [ -n "$additional_debian_packages" ]; then
+   # Just try to install stock packages
+     apt-get -y install apache2 python-mysqldb libapache2-mod-wsgi git mercurial
+     apt-get install -qqy pwgen
 
-cd /home/packages
+     juju-log "Installing extra debian packages: $additional_debian_packages"
+     sudo apt-get -y install $additional_debian_packages
 
+fi # Endo if [ -n "$purge_instance" ]; then
+
+juju-log "Checking for package mysql-server..."
+if ( dpkg -s mysql-server | grep installed 2> /dev/null ); then
+     juju-log "...installed"
+     package="installed"
+else
+     package=""
+     juju-log "...not installed"
+fi 
+
+cd $package_directory
 juju-log "Installing apache2 apache-wsgi and python dependencies via apt-get"
-
-apt-get -y install apache2 python-mysqldb libapache2-mod-wsgi git mercurial
-apt-get install -qqy debconf-utils pwgen
-
 
 if ! [ -e "Django-1.4" ]; then 
        wget https://www.djangoproject.com/download/1.4/tarball
@@ -46,8 +92,9 @@ fi
 
 # Install Django registration. Can be commented out at next if statment
 # Needs to be in the stripe charm
-# This copy is revised to work with Django 1.4
-# Do not use official one on Bitbucket
+# DO NOT USE THE OFFICIAL REPO ON BITBUCKET!
+# This copy is revised to work with Django 1.4 
+
 if ! [ -e "django-registration" ]; then 
        wget http://www.pbdefence.com/static/files/django-registration.tar.bz2
        tar xvf django-registration.tar.bz2
@@ -67,13 +114,14 @@ fi
 if [ -z "$package" -o -n "$reinstall_mysql" ]; then
      if [ -n "$package" ]; then
           juju-log "Removing mysql-server, client, and all settings"
-          apt-get -qqy purge mysql-client-core-5.5 mysql-server 
+          apt-get -y purge debconf-utils mysql-client-core-5.5 mysql-server 
      fi
      juju-log "Installing mysql-server and client"
      apt-get -y install mysql-client-core-5.5
-   # Generate a strong password for the mysql service, using /dev/urandom
+     apt-get install -qqy debconf-utils
+   # Generate a strong root password for the mysql service, using /dev/urandom
      PASSWORD=`pwgen 10 1`
-   # Store the password for later use by the db-relation-changed hook for this service unit.
+   # Store the password for later use by the rainbow-relation-changed hook for this service unit.
      echo $PASSWORD > /var/lib/juju/mysql.passwd
      echo mysql-server-5.1 mysql-server/root_password password $PASSWORD | debconf-set-selections
      echo mysql-server-5.1 mysql-server/root_password_again password $PASSWORD | debconf-set-selections
@@ -81,14 +129,11 @@ if [ -z "$package" -o -n "$reinstall_mysql" ]; then
      DEBIAN_FRONTEND=noninteractive apt-get -y install -qq mysql-server
      juju-log "Editing my.cnf to allow listening on all interfaces"
      sed --in-place=old 's/127\.0\.0\.1/0.0.0.0/' /etc/mysql/my.cnf
-   # juju-log "Stopping mysql service"
-   # service mysql stop
+     juju-log "Restarting mysql"
+     /etc/init.d/mysql restart
 fi
 
-
-
 a2dissite default
-
 /etc/init.d/apache2 restart
 
 

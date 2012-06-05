@@ -149,8 +149,8 @@ password=`cat /var/lib/juju/mysql.passwd`
 cd $app_source_directory
 
 # Put a single site into the django_site table
-site_domain="example.com"
-site_name="www.example.com"
+site_domain="radioweedshow.com"
+site_name="www.radioweedshow.com"
 
 if [ -n "$sites_used" ]; then
      juju-log "Found django.contrib.sites in installed apps. Creating single table as defined in this script."

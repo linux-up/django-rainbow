@@ -154,7 +154,14 @@ site_name="www.radioweedshow.com"
 
 if [ -n "$sites_used" ]; then
      juju-log "Found django.contrib.sites in installed apps. Creating single table as defined in this script."
-     echo "from django.contrib.sites.models import Site; entry = Site.objects.get(pk=$site_id); entry.objects.all().delete(); Site.objects.create(pk=$site_id, domain='$site_domain', name='$site_name')" | python manage.py shell
+echo "from django.contrib.sites.models import Site
+if Site.objects.filter(id=$site_id).exists():
+   Site.objects.filter(id=$site_id).update(id=$site_id, domain='$site_domain', name='$site_name')
+" | python manage.py shell
+
+echo "from django.contrib.sites.models import Site
+if not Site.objects.filter(id=$site_id).exists():
+   Site.objects.create(id=$site_id, domain='$site_domain', name='$site_name')" | python manage.py shell
 fi
 
 # Determine if a database needs to be created for this service
@@ -183,9 +190,14 @@ juju-log "Creating new database and corresponding security settings"
 mysqladmin --password="$password" create "$database_name"
 echo "grant all on $database_name.* to '$database_user'@'$database_host' identified by '$database_pass'" | mysql --password="$password" --database="$database_name"
 
-# Change this so it can support removing databases and users with config options -->
+# Change this so it can support removing users with config options in stripe -->
 #mysqladmin --password="$password" flush-privileges
 python manage.py syncdb 
 a2ensite vhost_$app_source_package_name
 apache2ctl -k graceful
+
+
+
+
+
 

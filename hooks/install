@@ -62,14 +62,14 @@ if [ -n "$purge_instance" ]; then
          juju-log "Installing package $install_pkg"
          apt-get -y install $install_pkg
      done;
-elif [ -n "$additional_debian_packages" ]; then
+else
    # Just try to install stock packages
      apt-get -y install apache2 python-mysqldb libapache2-mod-wsgi git mercurial
      apt-get install -qqy pwgen
-
-     juju-log "Installing extra debian packages: $additional_debian_packages"
-     sudo apt-get -y install $additional_debian_packages
-
+     if [ -n "$additional_debian_packages" ]; then
+          juju-log "Installing extra debian packages: $additional_debian_packages"
+          apt-get -y install $additional_debian_packages
+     fi
 fi # Endo if [ -n "$purge_instance" ]; then
 
 juju-log "Checking for package mysql-server..."

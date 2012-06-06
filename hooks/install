@@ -8,23 +8,31 @@ juju-log "Starting installation of Django-rainbow"
 
 additional_debian_packages=`config-get additional_debian_packages`
 additional_pip_packages=`config-get additional_pip_packages`
+run_update_upgrade=`config-get run-update-upgrade`
 reinstall_mysql=`config-get re-install-mysql-server`
 purge_instance=`config-get purge-instance`
 package_directory=`config-get package-installation-directory`
+
+if ! [ -e "$package_directory" ]; then
+       if ( ! mkdir $package_directory 2> /dev/null ); then
+          # Not gonna allow bad package installation directory
+            package_directory="/home/server-packages"
+            mkdir $package_directory
+       fi
+fi
 
 # Reinstall and store packages if specified in config with "purge_instance"
 if [ -n "$purge_instance" ]; then
    # Remove tralling slash at the end for consitancy
      package_directory="$(echo $package_directory | sed 's/\(.*\)\/$/\1/g')"
    # Remove all stock packages
+     juju-log "REMOVING apache2 apache-wsgi and python dependencies via apt-get"
      apt-get -y purge apache2 python-mysqldb libapache2-mod-wsgi git mercurial pwgen
    # Re-install all stock packages
+     juju-log "RE-INSTALLING apache2 apache-wsgi and python dependencies via apt-get"
      apt-get -y install apache2 python-mysqldb libapache2-mod-wsgi git mercurial
      apt-get install -qqy pwgen
 
-     if ! [ -e "$package_directory" ]; then
-            mkdir $package_directory
-     fi
      if ! [ -e "$package_directory/installed" ]; then
             touch $package_directory/installed
      fi
@@ -64,6 +72,7 @@ if [ -n "$purge_instance" ]; then
      done;
 else
    # Just try to install stock packages
+     juju-log "Installing apache2 apache-wsgi and python dependencies via apt-get"
      apt-get -y install apache2 python-mysqldb libapache2-mod-wsgi git mercurial
      apt-get install -qqy pwgen
      if [ -n "$additional_debian_packages" ]; then
@@ -72,17 +81,7 @@ else
      fi
 fi # Endo if [ -n "$purge_instance" ]; then
 
-juju-log "Checking for package mysql-server..."
-if ( dpkg -s mysql-server | grep installed 2> /dev/null ); then
-     juju-log "...installed"
-     package="installed"
-else
-     package=""
-     juju-log "...not installed"
-fi 
-
 cd $package_directory
-juju-log "Installing apache2 apache-wsgi and python dependencies via apt-get"
 
 if ! [ -e "Django-1.4" ]; then 
        wget https://www.djangoproject.com/download/1.4/tarball
@@ -106,8 +105,8 @@ if ( dpkg -s mysql-server | grep installed 2> /dev/null ); then
      juju-log "...installed"
      package="installed"
 else
-     package=""
      juju-log "...not installed"
+     package=""
 fi 
 
 
@@ -132,6 +131,14 @@ if [ -z "$package" -o -n "$reinstall_mysql" ]; then
      juju-log "Restarting mysql"
      /etc/init.d/mysql restart
 fi
+
+if [ -n "$run_update_upgrade" ]; then
+     juju-log "Running "apt-get update"
+     apt-get update
+     juju-log "Running "apt-get upgrade"
+     apt-get upgrade
+fi
+
 
 a2dissite default
 /etc/init.d/apache2 restart

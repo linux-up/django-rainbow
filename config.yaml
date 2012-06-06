@@ -35,4 +35,11 @@ options:
             the "re-install-mysql-server" to true.
         type: string
         default: 'true'
+    run-update-upgrade:
+        description: |
+            Set this to 'true' (or non-empty), if you wish to run a apt-get update
+            and upgrade. This is not recomended. Best to leave the Ubuntu version
+            in the hands of the Juju team.   
+        type: string
+        default: ''
 

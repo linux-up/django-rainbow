@@ -12,10 +12,11 @@ app_pass=`relation-get app_source_pass`
 app_vhost=`relation-get app_source_vhost`
 stripe_additional_debian_packages=`relation-get stripe_additional_debian_packages`
 stripe_additional_pip_packages=`relation-get stripe_additional_pip_packages`
-
+project_site_domain=`relation-get project-site-domian`
+project_site_name=`relation-get project-site-name`
 
 # Need these. Exit until I get them from the stripe. Juju automatically does this
-# intill they are non-empty
+# until they are non-empty
 if [ -z "$app_type" ]; then
      exit 0;
 fi
@@ -41,6 +42,8 @@ if ! [ -e "/var/django_rainbow/installed_repos" ]; then
        mkdir /var/django_rainbow
        touch /var/django_rainbow/installed_repos
 else
+           # Parse through our custom file which holds the URL
+           # and local direcotroy of the project
            while read stored_settings; do
                repo_url="$(echo $stored_settings | sed 's/.*\^\*\^\(.*\)/\1/g')"
                repo_dir="$(echo $stored_settings | sed 's/\(.*\)\^\*\^.*/\1/g')"
@@ -51,12 +54,6 @@ else
                repo_dir=""
            done </var/django_rainbow/installed_repos
 fi
-# If repo_dir is empty then this is the first time it will be pulled
-# and needs to be pulled to the temp directory --> /var/django_rainbow/temp_repo
-# It will then be moved to the directory defined in it's own data
-# This only happens once. After this the directory will be defined in -->
-# /var/django_rainbow/installed_repos
-
 
      if [ -e "/var/django_rainbow/vhost_temp" ]; then
           rm /var/django_rainbow/vhost_temp
@@ -148,54 +145,61 @@ password=`cat /var/lib/juju/mysql.passwd`
 # chown -R www-data "$repo_dir"
 cd $app_source_directory
 
-# Put a single site into the django_site table
-site_domain="radioweedshow.com"
-site_name="www.radioweedshow.com"
 
-if [ -n "$sites_used" ]; then
-     juju-log "Found django.contrib.sites in installed apps. Creating single table as defined in this script."
-echo "from django.contrib.sites.models import Site
-if Site.objects.filter(id=$site_id).exists():
-   Site.objects.filter(id=$site_id).update(id=$site_id, domain='$site_domain', name='$site_name')
-" | python manage.py shell
-
-echo "from django.contrib.sites.models import Site
-if not Site.objects.filter(id=$site_id).exists():
-   Site.objects.create(id=$site_id, domain='$site_domain', name='$site_name')" | python manage.py shell
-fi
 
 # Determine if a database needs to be created for this service
 existing_databases=`mysql --user="root" --password="$password" --silent --execute 'show databases'`
 
+database_exists=false
 for db in $existing_databases; do
     if [ "$db" = "$database_name" ]; then
-        juju-log "Database already exists, publishing details and exiting"
-        if ( ! python manage.py syncdb 2> /dev/null ); then
-             juju-log "Unable to sync database $database_name with project. Re-issuing credentials."
-             echo "grant all on $database_name.* to '$database_user'@'$database_host' identified by '$database_pass'" | mysql --password="$password" --database="$database_name"
-             if ( ! python manage.py syncdb ); then
-                  juju-log "Unable to set username and password from Django project. Quitting."
-                  exit 9;
-             fi
-        fi
-        a2ensite vhost_$app_source_package_name
-        apache2ctl -k graceful
-        # All done, no need to create the database below.
-        exit 0; 
+        juju-log "Database $database_name already exists"
+        database_exists=true
+        break;
     fi
 done
 
-# Create new database and corresponding security settings for stripe
-juju-log "Creating new database and corresponding security settings"
-mysqladmin --password="$password" create "$database_name"
-echo "grant all on $database_name.* to '$database_user'@'$database_host' identified by '$database_pass'" | mysql --password="$password" --database="$database_name"
+if ( ! $database_exists ); then
+     juju-log "Creating new database"
+     mysqladmin --password="$password" create "$database_name"
+     echo "grant all on $database_name.* to '$database_user'@'$database_host' identified by '$database_pass'" | mysql --password="$password" --database="$database_name"
+fi
 
-# Change this so it can support removing users with config options in stripe -->
-#mysqladmin --password="$password" flush-privileges
-python manage.py syncdb 
+if ( ! python manage.py syncdb 2> /dev/null ); then
+     juju-log "Unable to sync database $database_name with project. Re-issuing credentials."
+     echo "grant all on $database_name.* to '$database_user'@'$database_host' identified by '$database_pass'" | mysql --password="$password" --database="$database_name"
+     if ( ! python manage.py syncdb ); then
+          juju-log "Unable to set username and password from Django project. Quitting."
+          exit 9;
+     fi
+fi
+
+
+# Put a single site into the django_site table
+if [ -n "$sites_used" -a -n "site_id" ]; then
+     juju-log "Found django.contrib.sites in installed apps. Creating single table with id $site_id."
+     if [ -z "$project_site_name" -o -z "$project_site_domain" ]; then
+          juju-log "Sites framwork has been defined in your settings.py file, but site domain and/or name was provided in the config."
+          juju-log "Skipping sites framwork"
+     else                   
+          juju-log "Creating sites database entry in $database_name"
+echo "from django.contrib.sites.models import Site
+if Site.objects.filter(id=$site_id).exists():
+   Site.objects.filter(id=$site_id).update(id=$site_id, domain='$site_domain', name='$site_name')" | python manage.py shell
+echo "from django.contrib.sites.models import Site
+if not Site.objects.filter(id=$site_id).exists():
+   Site.objects.create(id=$site_id, domain='$site_domain', name='$site_name')" | python manage.py shell
+
+     fi
+fi
+
+juju-log "Enabling virtual host vhost_$app_source_package_name"
 a2ensite vhost_$app_source_package_name
+
+juju-log "Restarting Apache2 gracefully"
 apache2ctl -k graceful
 
+juju-log "Done"
 
 
 

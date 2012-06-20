@@ -1,4 +1,11 @@
 options:
+    revision:
+        description: |
+            ! ( Change this in the your-project.yaml file to utilize multiple projects on one instance )
+            This can be altered to re-trigger the config-changed hook. This will update the
+            project code and replace any settings.
+        type: string
+        default: '1'
     rainbow-packages:
         description: |
             The standard and basic packages for django-rainbow. These
@@ -6,7 +13,7 @@ options:
             Any extras can be added below. 
         type: string
         default: 'apache2 python-mysqldb libapache2-mod-wsgi git mercurial pwgen python-pip'
-    additional-debian-packages:
+    additional-apt-get-packages:
         description: |
             Additional debian packages to install (eg. python-django-south). This
             string will be passed to apt-get.
@@ -18,11 +25,31 @@ options:
             packages.
         type: string
         default: ''
-    package-installation-directory:
+    additional-bzr-packages:
         description: |
-            The directory to install any provided packages in this config.
+            Additional python packages that are not yet available as Ubuntu/Debian
+            packages.
         type: string
-        default: '/var/lib/django-rainbow/packages'
+        default: ''
+    additional-git-packages:
+        description: |
+            Additional python packages that are not yet available as Ubuntu/Debian
+            packages.
+        type: string
+        default: ''
+    additional-bzip-packages:
+        description: |
+            ! ( Change this in the your-project.yaml file to utilize multiple projects on one instance )
+            Additional python packages that are not yet available as Ubuntu/Debian. This needs
+            to be in the tar.gz format.
+            packages.
+        type: string
+        default: ''
+    rainbow-installation-directory:
+        description: |
+            The directory that Django-rainbow will use to store data and install packages.
+        type: string
+        default: '/var/lib/django-rainbow'
     re-install-mysql-server:
         description: |
             Set this to true (or non-empty), if you wish to have the mysql client core removed
@@ -46,38 +73,53 @@ options:
             DOES NOT INCLUDE MYSQL! If you wan't to re-install mysql client than set
             the re-install-mysql-server to true.
         type: string
-        default: ''
-    revision:
-        description: |
-            ! ( Change this in the local.yaml file to utilize multiple projects on one instance )
-            This can be altered to re-trigger the config-changed hook. This will update the
-            project code and replace any settings.
-        type: string
-        default: '1'
+        default: 'true'
     project-additional-debian-packages:
         description: |
-            ! ( Change this in the local.yaml file to utilize multiple projects on one instance )
+            ! ( Change this in the your-project.yaml file to utilize multiple projects on one instance )
             Additional debian packages to install (eg. python-django-south). This
             string will be passed to apt-get.
         type: string
         default: ''
     project-additional-pip-packages:
         description: |
-            ! ( Change this in the local.yaml file to utilize multiple projects on one instance )
+            ! ( Change this in the your-project.yaml file to utilize multiple projects on one instance )
             Additional python packages that are not yet available as Ubuntu/Debian
+            packages.
+        type: string
+        default: ''
+    project-additional-bzr-packages:
+        description: |
+            ! ( Change this in the your-project.yaml file to utilize multiple projects on one instance )
+            Additional python packages that are not yet available as Ubuntu/Debian
+            packages.
+        type: string
+        default: ''
+    project-additional-git-packages:
+        description: |
+            ! ( Change this in the your-project.yaml file to utilize multiple projects on one instance )
+            Additional python packages that are not yet available as Ubuntu/Debian
+            packages.
+        type: string
+        default: ''
+    project-additional-bzip-packages:
+        description: |
+            ! ( Change this in the your-project.yaml file to utilize multiple projects on one instance )
+            Additional python packages that are not yet available as Ubuntu/Debian. This needs
+            to be in the tar.gz format.
             packages.
         type: string
         default: ''
     project-repo-type:
         description: |
-            ! ( Change this in the local.yaml file to utilize multiple projects on one instance )
+            ! ( Change this in the your-project.yaml file to utilize multiple projects on one instance )
             This is the brand of repository versioning the project uses. Only hg for now...
             E.g. bzr, hg, git, svn, etc...
         type: string
         default: ''
     project-repo-url:
         description: |
-            ! ( Change this in the local.yaml file to utilize multiple projects on one instance )
+            ! ( Change this in the your-project.yaml file to utilize multiple projects on one instance )
             The url of the project repository. Only bitbucket is supported currently.
             E.g. https://bitbucket.org/ubernostrum/django-registration
                  ssh://user@your-site.com/project
@@ -85,19 +127,19 @@ options:
         default: ''
     project-repo-username:
         description: |
-            ! ( Change this in the local.yaml file to utilize multiple projects on one instance )
+            ! ( Change this in the your-project.yaml file to utilize multiple projects on one instance )
             The username of the project repository.
         type: string
         default: ''
     project-repo-password:
         description: |
-            ! ( Change this in the local.yaml file to utilize multiple projects on one instance )
+            ! ( Change this in the your-project.yaml file to utilize multiple projects on one instance )
             The password of the project repository.
         type: string
         default: ''
     project-site-name:
         description: |
-            ! ( Change this in the local.yaml file to utilize multiple projects on one instance )
+            ! ( Change this in the your-project.yaml file to utilize multiple projects on one instance )
             (Optional) This is the name given to the site. It is used with emailing and
             running multiple sites toupled togther. Can be changed with the Django Admin system later.
             This can be set to anything if your do not have django.contrib.sites and a SITE_ID
@@ -106,7 +148,7 @@ options:
         default: ''
     project-site-domain:
         description: |
-            ! ( Change this in the local.yaml file to utilize multiple projects on one instance )
+            ! ( Change this in the your-project.yaml file to utilize multiple projects on one instance )
             (Optional) This is the domian given to the site. It is used with emailing and
             running multiple sites toupled togther. Can be changed with the Django Admin system later.
             This can be set to anything if your do not have django.contrib.sites and a SITE_ID
@@ -115,7 +157,7 @@ options:
         default: ''
     project-apache2-vhost:
         description: |
-            ! ( Change this in the local.yaml file to utilize multiple projects on one instance )
+            ! ( Change this in the your-project.yaml file to utilize multiple projects on one instance )
             The entire virtual host for this django project.
         type: string
         default: ''

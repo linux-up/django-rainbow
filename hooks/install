@@ -7,44 +7,60 @@ set -eux # -x for verbose logging to juju debug-log
 juju-log "Starting installation of Django-rainbow"
 
 native_packages=`config-get rainbow-packages`
-additional_debian_packages=`config-get additional-debian-packages`
+additional_debian_packages=`config-get additional-apt-get-packages`
 additional_pip_packages=`config-get additional-pip-packages`
+bzr_repo_packages=`config-get additional-bzr-packages`
+git_repo_packages=`config-get additional-git-packages`
+bzip_repo_packages=`config-get additional-bzip-packages`
+
 reinstall_mysql=`config-get re-install-mysql-server`
 purge_instance=`config-get purge-instance`
-package_directory=`config-get package-installation-directory`
+package_directory=`config-get rainbow-installation-directory`
+
+
+# Remove tralling slash at the end for consitancy
+package_directory="$(echo $package_directory | sed 's/\(.*\)\/$/\1/g')"
+
+
 
 if ! [ -e "$package_directory" ]; then
        if ( ! mkdir -p $package_directory 2> /dev/null ); then
           # Not gonna allow bad package installation directory
-            package_directory="/var/lib/django-rainbow/packages"
+            package_directory="/var/lib/django-rainbow"
             mkdir -p $package_directory
        fi
 fi
 
-# Reinstall and store packages if specified in config with "purge_instance"
+# Create the directory for addition packages via pip, git, or bzip
+if ! [ -e "$package_directory/packages" ]; then
+       mkdir $package_directory/packages
+fi
+
+# Create the directory for addition packages via pip, git, or bzip for the project
+if ! [ -e "$package_directory/site_packages" ]; then
+       mkdir $package_directory/site_packages
+fi
+
+
+# Gonna store our packages case of a service destroy
+if ! [ -e "$package_directory/installed" ]; then
+       touch $package_directory/installed
+fi
+
+
+# Erase data if exists and poplulate the temp file for listed packages
+echo "" > $package_directory/temp_installed
+for pkg in $(echo "$additional_debian_packages"); do
+    echo "$pkg" >> $package_directory/temp_installed
+done;
+
+
+# Store and remove packages if specified in config with "purge_instance"
 if [ -n "$purge_instance" ]; then
+
      juju-log "Purging instance"
-   # Remove tralling slash at the end for consitancy
-     package_directory="$(echo $package_directory | sed 's/\(.*\)\/$/\1/g')"
-   # Remove all stock packages
-     juju-log "REMOVING $native_packages via apt-get"
-     apt-get -y purge $native_packages
-   # Re-install all stock packages
-     juju-log "RE-INSTALLING $native_packages via apt-get"
-     apt-get -qqy install $native_packages
-
-   # Gonna store our packages in case of a service destroy
-     if ! [ -e "$package_directory/installed" ]; then
-            touch $package_directory/installed
-     fi
-
-   # Erase data and poplulate a temp file for listed packages
-     echo "" > $package_directory/temp_installed
-     for pkg in $(echo "$additional_debian_packages"); do
-         echo "$pkg" >> $package_directory/temp_installed
-     done;
-
      # Installed file now contains any packages to be removed from previous install
+
      for remove_pkg in $(cat $package_directory/installed); do
          [ -z "$remove_pkg" ] && continue     # Dont need empty data
          # Can't have spaces either
@@ -53,35 +69,95 @@ if [ -n "$purge_instance" ]; then
          apt-get -qqy purge $remove_pkg
       done;
 
-   # Add all packages to the installed file for next run re-installation
-     new_list="$(comm -13 <(sort $package_directory/installed) <(sort $package_directory/temp_installed))"
-     cp $package_directory/temp_installed $package_directory/installed
+   # Remove all stock packages
 
-   # Installed file now contains all packages to be installed now
-     for install_pkg in $(cat $package_directory/installed); do
-         [ -z "$install_pkg" ] && continue   # Dont need empty data
-         # Can't have spaces either
-         install_pkg="$(echo "$install_pkg" | sed 's/\ *//g')"
-         juju-log "Installing package $install_pkg"
-         apt-get -qqy install $install_pkg
-     done;
-else
-   # Just try to install stock packages
+     juju-log "REMOVING $native_packages via apt-get"
+     apt-get -y purge $native_packages
+
+     # This will remove all Django and python packages from the python directory
+
+     ( ! rm -r /usr/local/lib/python2.7/dist-packages/ 2> /dev/null ) && juju-log "Could not clean python packages at /usr/local/lib/python2.7/dist-packages/" 
+fi # Endo if [ -n "$purge_instance" ]; then
+
+# Add all packages to the installed file for next run re-installation
+
+new_list="$(comm -13 <(sort $package_directory/installed) <(sort $package_directory/temp_installed))"
+cp $package_directory/temp_installed $package_directory/installed
+
+# Installed file now contains all additional packages to be installed now and removed next time this happens
+
+# Install stock packages
      juju-log "Installing $native_packages via apt-get"
      apt-get -qqy install $native_packages
+
      if [ -n "$additional_debian_packages" ]; then
           juju-log "Installing extra debian packages: $additional_debian_packages"
           apt-get -qqy install $additional_debian_packages
      fi
-fi # Endo if [ -n "$purge_instance" ]; then
 
-cd $package_directory
+
+juju-log "Installing bzr packages"
+for bzr_repo in $bzr_repo_packages; do
+[ -z "$bzr_repo" ] && continue
+bzr_repo_name="$(echo $bzr_repo | sed 's/.*lp:\(.*\)/\1/g' | sed 's/\ //g')"
+[ -e $bzr_repo_name ] && continue
+
+mkdir $bzr_repo_name
+cd $bzr_repo_name
+( ! bzr branch $bzr_repo 2> /dev/null ) && juju-log "Unable to branch bzr repository $bzr_repo"
+cd "$(find . -name 'setup.py' | sed 's/setup\.py//g')"
+( ! python setup.py install 2> /dev/null ) && juju-log "Could install bzr package $bzr_repo_name while running python setup.py install"
+cd $package_directory/packages
+done;
+
+
+juju-log "Installing git packages"
+for git_repo in $git_repo_packages; do
+[ -z "$git_repo" ] && continue
+
+git_repo_name="$(echo $git_repo | sed 's/.*\/\(.*\)\.git/\1/g' | sed 's/\ //g')"
+[ -e $git_repo_name ] && continue
+
+mkdir $git_repo_name
+cd $git_repo_name
+( ! git clone $git_repo 2> /dev/null ) && juju-log "Unable to git clone repository $git_repo"
+cd "$(find . -name 'setup.py' | sed 's/setup\.py//g')"
+( ! python setup.py install 2> /dev/null ) && juju-log "Could install git package $git_repo_name while running python setup.py install"
+cd $package_directory/packages
+done;
+
+
+juju-log "Installing bzip packages"
+for bzip_repo in $bzip_repo_packages; do
+[ -z "$bzip_repo" ] && continue
+
+bzip_repo_name="$(echo $bzip_repo | sed 's/.*\/\(.*\)\.tar\.gz/\1/g' | sed 's/\ //g')"
+[ -e $bzip_repo_name ] && continue
+
+mkdir $bzip_repo_name
+cd $bzip_repo_name
+
+( ! wget $bzip_repo 2> /dev/null ) && juju-log "Unable to retrieve tar.gz file $git_repo"
+( ! tar xfv * 2> /dev/null ) && juju-log "Unable to extract file $git_repo" 
+
+cd "$(find . -name 'setup.py' | sed 's/setup\.py//g')"
+( ! python setup.py install 2> /dev/null ) && juju-log "Could install bzip package $bzip_repo_name while running python setup.py install"
+cd $package_directory/packages
+done;
+
+
+
+
+
+cd $package_directory/packages
 
 if ! [ -e "Django-1.4" ]; then 
        wget https://www.djangoproject.com/download/1.4/tarball
        tar -xvf tarball
        python Django-1.4/setup.py install
 fi
+
+
 
 juju-log "Checking for package mysql-server..."
 if ( dpkg -s mysql-server | grep installed 2> /dev/null ); then

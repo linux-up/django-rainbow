@@ -1,4 +1,7 @@
 1. Can't have spaces after entries in settings.py. Puts this space into the field.
-2. Does hg update have user input? Yes sometimes, uhhh ( hg pull --update --force )?
+2. Does hg update have user input? Yes sometimes, uhhh maybe, shouldn't. ( hg pull --update --force )?
 3. No need to parse settings.py if it is unchanged and no syncdb is needed.
-3. Upgrade charm can be created.
+3. Upgrade charm hook can be created.
+4. Add bzr to repository availiblity for project
+5. Purge django as well (Takes to long in testing).
+6. Add log file instead of sending errors to /dev/null

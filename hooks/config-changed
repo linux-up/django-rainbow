@@ -12,8 +12,12 @@ app_pass=`config-get project-repo-password`
 app_vhost=`config-get --format smart project-apache2-vhost`
 stripe_additional_debian_packages=`config-get project-additional-debian-packages`
 stripe_additional_pip_packages=`config-get project-additional-pip-packages`
+stripe_additional_git_packages=`config-get project-additional-git-packages`
+stripe_additional_bzr_packages=`config-get project-additional-bzr-packages`
+stripe_additional_bzip_packages=`config-get project-additional-bzip-packages`
 project_site_domain=`config-get project-site-domian`
 project_site_name=`config-get project-site-name`
+package_directory=`config-get rainbow-installation-directory`
 
 juju-log "Running revision $revision_trigger"
 
@@ -21,6 +25,10 @@ if [ -z "$app_type" -o -z "$app_url" -o -z "$app_vhost" ]; then
      juju-log "Not enough configuration settings to proceed. Quitting."
      exit 0;
 fi
+
+[ ! -e "$package_directory/site_packages" ] && mkdir $package_directory/site_packages
+
+cd $package_directory/site_packages
 
 juju-log "Installing additional packages for project."
 
@@ -34,6 +42,59 @@ if [ "$stripe_additional_pip_packages" ]; then
     juju-log "Installing extra pip packages: $stripe_additional_pip_packages"
     pip install $stripe_additional_pip_packages
 fi
+
+
+
+juju-log "Installing bzr packages"
+for bzr_repo in $stripe_additional_bzr_packages; do
+[ -z "$bzr_repo" ] && continue
+bzr_repo_name="$(echo $bzr_repo | sed 's/.*lp:\(.*\)/\1/g' | sed 's/\ //g')"
+[ -e $bzr_repo_name ] && continue
+
+mkdir $bzr_repo_name
+cd $bzr_repo_name
+( ! bzr branch $bzr_repo 2> /dev/null ) && juju-log "Unable to branch bzr repository $bzr_repo"
+cd "$(find . -name 'setup.py' | sed 's/setup\.py//g')"
+( ! python setup.py install 2> /dev/null ) && juju-log "Could install bzr package $bzr_repo_name while running python setup.py install"
+cd $package_directory/site_packages
+done;
+
+
+juju-log "Installing git packages"
+for git_repo in $stripe_additional_git_packages; do
+[ -z "$git_repo" ] && continue
+
+git_repo_name="$(echo $git_repo | sed 's/.*\/\(.*\)\.git/\1/g' | sed 's/\ //g')"
+[ -e $git_repo_name ] && continue
+
+mkdir $git_repo_name
+cd $git_repo_name
+( ! git clone $git_repo 2> /dev/null ) && juju-log "Unable to git clone repository $git_repo"
+cd "$(find . -name 'setup.py' | sed 's/setup\.py//g')"
+( ! python setup.py install 2> /dev/null ) && juju-log "Could install git package $git_repo_name while running python $git_repo_name/setup.py install"
+cd $package_directory/site_packages
+done;
+
+
+juju-log "Installing bzip packages"
+for bzip_repo in $stripe_additional_bzip_packages do
+[ -z "$bzip_repo" ] && continue
+
+bzip_repo_name="$(echo $bzip_repo | sed 's/.*\/\(.*\)\.tar\.gz/\1/g' | sed 's/\ //g')"
+[ -e $bzip_repo_name ] && continue
+
+mkdir $bzip_repo_name
+cd $bzip_repo_name
+
+( ! wget $bzip_repo 2> /dev/null ) && juju-log "Unable to retrieve tar.gz file $git_repo"
+( ! tar xfv * 2> /dev/null ) && juju-log "Unable to extract file $git_repo" 
+cd "$(find . -name 'setup.py' | sed 's/setup\.py//g')"
+( ! python setup.py install 2> /dev/null ) && juju-log "Could install bzip package $bzip_repo_name while running python setup.py install"
+cd $package_directory/packages
+done;
+
+
+
 
 repo_dir=""
 # Check /var/lib/django-rainbow/installed_repos for current settings of project repository

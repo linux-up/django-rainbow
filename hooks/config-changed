@@ -73,7 +73,7 @@ if [ -z "$repo_dir" ]; then
 
      cd $repo_dir
      if [ "$app_type" = "hg" ]; then
-          hg init
+          ( ! hg init 2> /dev/null ) && juju-log "Error running a hg init command. This is probably due to corrupted data in /var/lib/django-rainbow/installed_repos. This should continue working properly however."
 # This will preset the hg init with user and password. Juju cannot accept user input.
 # Keep this echo text to the left. It will be copied to the file this way.
 echo '[paths]
@@ -83,7 +83,7 @@ bb.prefix = https://bitbucket.org
 bb.username = '"$app_uname"'
 bb.password = '"$app_pass"'' > .hg/hgrc
        juju-log "Pulling project for the first time from repository $app_url"
-       if ( ! hg pull --update )
+       if ( ! hg pull --update 2> /dev/null ); then
             juju-log "Could not fetch repository from $app_url"
             exit 0;
        fi
@@ -92,7 +92,7 @@ else
      # cd to the directory listed in the DocumentRoot of the provided virtual host in the stripe
      cd $repo_dir
      juju-log "Updating any project commits from repository $app_url"
-     if ( ! hg pull --update )
+     if ( ! hg pull --update ); then
           juju-log "Could not fetch repository from $app_url"
           exit 0;
      fi

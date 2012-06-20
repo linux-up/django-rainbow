@@ -40,6 +40,7 @@ settings set in this file will be permanent. It is reasonable to include project
 *1)* Make sure that when the project repository is pulled onto the server, the         DocumentRoot directory listed in the virtual host is the base directory of the project. This may require changing the project repository directory structure or virtual host settings a bit.    
 *2)* Do not edit any repository data on the instance.  The project should only be
 updated by a config-changed trigger. This is what the revision setting is for in the *your-project.yaml* file.  
+*4)* Your project can updated by increasing the revision number in this file. Another *juju set django-rainbow --config /path/to/your-project.yaml* will trigger the config-changed hook.   
 *3) Don't forget to use a *juju expose django-rainbow* command to make it public and associate an ip address to the machine with aws management.
 
 * * *
@@ -72,7 +73,6 @@ Robert Edward Steckroth II
 
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see [http://www.gnu.org/licenses/](http://www.gnu.org/licenses/)
-
 
 
 

@@ -6,33 +6,34 @@ set -eux # -x for verbose logging to juju debug-log
 
 juju-log "Starting installation of Django-rainbow"
 
-additional_debian_packages=`config-get additional_debian_packages`
-additional_pip_packages=`config-get additional_pip_packages`
-run_update_upgrade=`config-get run-update-upgrade`
+native_packages=`config-get rainbow-packages`
+additional_debian_packages=`config-get additional-debian-packages`
+additional_pip_packages=`config-get additional-pip-packages`
 reinstall_mysql=`config-get re-install-mysql-server`
 purge_instance=`config-get purge-instance`
 package_directory=`config-get package-installation-directory`
 
 if ! [ -e "$package_directory" ]; then
-       if ( ! mkdir $package_directory 2> /dev/null ); then
+       if ( ! mkdir -p $package_directory 2> /dev/null ); then
           # Not gonna allow bad package installation directory
-            package_directory="/home/server-packages"
-            mkdir $package_directory
+            package_directory="/var/lib/django-rainbow/packages"
+            mkdir -p $package_directory
        fi
 fi
 
 # Reinstall and store packages if specified in config with "purge_instance"
 if [ -n "$purge_instance" ]; then
+     juju-log "Purging instance"
    # Remove tralling slash at the end for consitancy
      package_directory="$(echo $package_directory | sed 's/\(.*\)\/$/\1/g')"
    # Remove all stock packages
-     juju-log "REMOVING apache2 apache-wsgi and python dependencies via apt-get"
-     apt-get -y purge apache2 python-mysqldb libapache2-mod-wsgi git mercurial pwgen
+     juju-log "REMOVING $native_packages via apt-get"
+     apt-get -y purge $native_packages
    # Re-install all stock packages
-     juju-log "RE-INSTALLING apache2 apache-wsgi and python dependencies via apt-get"
-     apt-get -y install apache2 python-mysqldb libapache2-mod-wsgi git mercurial
-     apt-get install -qqy pwgen
+     juju-log "RE-INSTALLING $native_packages via apt-get"
+     apt-get -qqy install $native_packages
 
+   # Gonna store our packages in case of a service destroy
      if ! [ -e "$package_directory/installed" ]; then
             touch $package_directory/installed
      fi
@@ -45,14 +46,11 @@ if [ -n "$purge_instance" ]; then
 
      # Installed file now contains any packages to be removed from previous install
      for remove_pkg in $(cat $package_directory/installed); do
-         if [ -z "$remove_pkg" ]; then
-              # Dont need empty data
-              continue
-         fi
+         [ -z "$remove_pkg" ] && continue     # Dont need empty data
          # Can't have spaces either
          remove_pkg="$(echo "$remove_pkg" | sed 's/\ *//g')"
          juju-log "Removing package $remove_pkg"
-         apt-get -y purge $remove_pkg
+         apt-get -qqy purge $remove_pkg
       done;
 
    # Add all packages to the installed file for next run re-installation
@@ -61,23 +59,19 @@ if [ -n "$purge_instance" ]; then
 
    # Installed file now contains all packages to be installed now
      for install_pkg in $(cat $package_directory/installed); do
-         if [ -z "$install_pkg" ]; then
-              # Dont need empty data
-              continue
-         fi
+         [ -z "$install_pkg" ] && continue   # Dont need empty data
          # Can't have spaces either
          install_pkg="$(echo "$install_pkg" | sed 's/\ *//g')"
          juju-log "Installing package $install_pkg"
-         apt-get -y install $install_pkg
+         apt-get -qqy install $install_pkg
      done;
 else
    # Just try to install stock packages
-     juju-log "Installing apache2 apache-wsgi and python dependencies via apt-get"
-     apt-get -y install apache2 python-mysqldb libapache2-mod-wsgi git mercurial
-     apt-get install -qqy pwgen
+     juju-log "Installing $native_packages via apt-get"
+     apt-get -qqy install $native_packages
      if [ -n "$additional_debian_packages" ]; then
           juju-log "Installing extra debian packages: $additional_debian_packages"
-          apt-get -y install $additional_debian_packages
+          apt-get -qqy install $additional_debian_packages
      fi
 fi # Endo if [ -n "$purge_instance" ]; then
 
@@ -87,17 +81,6 @@ if ! [ -e "Django-1.4" ]; then
        wget https://www.djangoproject.com/download/1.4/tarball
        tar -xvf tarball
        python Django-1.4/setup.py install
-fi
-
-# Install Django registration. Can be commented out at next if statment
-# Needs to be in the stripe charm
-# DO NOT USE THE OFFICIAL REPO ON BITBUCKET!
-# This copy is revised to work with Django 1.4 
-
-if ! [ -e "django-registration" ]; then 
-       wget http://www.pbdefence.com/static/files/django-registration.tar.bz2
-       tar xvf django-registration.tar.bz2
-       python django-registration/setup.py install
 fi
 
 juju-log "Checking for package mysql-server..."
@@ -112,12 +95,11 @@ fi
 
 if [ -z "$package" -o -n "$reinstall_mysql" ]; then
      if [ -n "$package" ]; then
-          juju-log "Removing mysql-server, client, and all settings"
-          apt-get -y purge debconf-utils mysql-client-core-5.5 mysql-server 
+          juju-log "Removing mysql client and all settings"
+          apt-get -qqy purge debconf-utils mysql-client-core-5.5 mysql-server 
      fi
      juju-log "Installing mysql-server and client"
-     apt-get -y install mysql-client-core-5.5
-     apt-get install -qqy debconf-utils
+     apt-get -qqy install mysql-client-core-5.5 debconf-utils
    # Generate a strong root password for the mysql service, using /dev/urandom
      PASSWORD=`pwgen 10 1`
    # Store the password for later use by the rainbow-relation-changed hook for this service unit.
@@ -130,13 +112,6 @@ if [ -z "$package" -o -n "$reinstall_mysql" ]; then
      sed --in-place=old 's/127\.0\.0\.1/0.0.0.0/' /etc/mysql/my.cnf
      juju-log "Restarting mysql"
      /etc/init.d/mysql restart
-fi
-
-if [ -n "$run_update_upgrade" ]; then
-     juju-log "Running "apt-get update"
-     apt-get update
-     juju-log "Running "apt-get upgrade"
-     apt-get upgrade
 fi
 
 

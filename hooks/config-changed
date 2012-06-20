@@ -1,5 +1,203 @@
-#!/bin/sh
-# This must be renamed to the name of the relation. The goal here is to
-# affect any change needed by the remote unit leaving the relationship.
-# This script should be idempotent.
+#!/bin/bash
+
+# Created by Robert Edward Steckroth II, RobertSteckroth@gmail.com
+set -eux # -x for verbose logging to juju debug-log
+
+juju-log "Setting up Django-rainbow."
+revision_trigger=`config-get revision`
+app_type=`config-get project-repo-type`
+app_url=`config-get project-repo-url`
+app_uname=`config-get project-repo-username`
+app_pass=`config-get project-repo-password`
+app_vhost=`config-get --format smart project-apache2-vhost`
+stripe_additional_debian_packages=`config-get project-additional-debian-packages`
+stripe_additional_pip_packages=`config-get project-additional-pip-packages`
+project_site_domain=`config-get project-site-domian`
+project_site_name=`config-get project-site-name`
+
+juju-log "Running revision $revision_trigger"
+
+if [ -z "$app_type" -o -z "$app_url" -o -z "$app_vhost" ]; then
+     juju-log "Not enough configuration settings to proceed. Quitting."
+     exit 0;
+fi
+
+juju-log "Installing additional packages for project."
+
+# Install these if the user defined any in the stripe config.yaml file
+if [ "$stripe_additional_debian_packages" ]; then
+    juju-log "Installing extra debian packages: $stripe_additional_debian_packages"
+    apt-get -qqy install $stripe_additional_debian_packages
+fi
+
+if [ "$stripe_additional_pip_packages" ]; then
+    juju-log "Installing extra pip packages: $stripe_additional_pip_packages"
+    pip install $stripe_additional_pip_packages
+fi
+
+repo_dir=""
+# Check /var/lib/django-rainbow/installed_repos for current settings of project repository
+juju-log "Checking for stored project settings."
+if ! [ -e "/var/lib/django-rainbow/installed_repos" ]; then
+       juju-log "No stored project settings file is present."
+       ! [ -e "/var/lib/django-rainbow" ] && mkdir -p /var/lib/django-rainbow
+       touch /var/lib/django-rainbow/installed_repos
+else
+           # Parse through our custom file which holds the URL
+           # and local direcotroy of the project
+           while read stored_settings; do
+               repo_url="$(echo $stored_settings | sed 's/.*\^\*\^\(.*\)/\1/g')"
+               repo_dir="$(echo $stored_settings | sed 's/\(.*\)\^\*\^.*/\1/g')"
+               [ "$repo_url" = "$app_url" ] && break || repo_dir=""
+           done </var/lib/django-rainbow/installed_repos
+fi
+
+     # empty the temporary vhost file
+     echo '' > /var/lib/django-rainbow/vhost_temp
+     juju-log "Creating virtual host file."
+     echo -e "$app_vhost \neof" | while read line; do
+        [ "$line" = "eof" ] && break
+        echo $line >> /var/lib/django-rainbow/vhost_temp
+     done;
+
+
+if [ -z "$repo_dir" ]; then
+     juju-log "Repository not found on server. Logging the new settings."
+     # Only supports mercurial. Need to have bzr, git, and svn.
+     # Fetch the project directory from the virtual host DocumentRoot setting
+
+     repo_dir="$(cat /var/lib/django-rainbow/vhost_temp | grep -xv " *#.*" | grep ".*DocumentRoot\ *" | sed 's/#.*//g' | sed 's/\ *DocumentRoot\ *//g')"
+     # Log the new repository locations
+     echo "$repo_dir""^*^""$app_url" >> /var/lib/django-rainbow/installed_repos
+     ! [ -e "$repo_dir" ] && mkdir -p $repo_dir
+
+     cd $repo_dir
+     if [ "$app_type" = "hg" ]; then
+          hg init
+# This will preset the hg init with user and password. Juju cannot accept user input.
+# Keep this echo text to the left. It will be copied to the file this way.
+echo '[paths]
+default = '"$app_url"'
+[auth]
+bb.prefix = https://bitbucket.org
+bb.username = '"$app_uname"'
+bb.password = '"$app_pass"'' > .hg/hgrc
+       juju-log "Pulling project for the first time from repository $app_url"
+       if ( ! hg pull --update )
+            juju-log "Could not fetch repository from $app_url"
+            exit 0;
+       fi
+     fi # Endo if [ "$app_type" = "hg" ]; then
+else
+     # cd to the directory listed in the DocumentRoot of the provided virtual host in the stripe
+     cd $repo_dir
+     juju-log "Updating any project commits from repository $app_url"
+     if ( ! hg pull --update )
+          juju-log "Could not fetch repository from $app_url"
+          exit 0;
+     fi
+fi # Endo if [ -z "$repo_dir" ]; then
+
+# todo: Check to see if the settings.py file is changed before all of this
+
+
+# Retrieve to port number from the temporary virtual host file
+project_port="$(cat /var/lib/django-rainbow/vhost_temp | grep -i ".*\< *VirtualHost.*\:.*\>\ *" | sed 's/#.*//g' | sed 's/.*\: *\([0-9]*\) *\>.*/\1/g')"
+# Store the name of the directory which conatins the settings.py file as the project name
+app_source_package_name="$(find . -iname 'settings.py' | sed 's/.*\/\(.*\)\/settings.py/\1/g')"
+# This is the absolute path to the setting.py file for the striped Django project
+app_source_directory="$(find . -name 'settings.py' | sed 's/\(.*\)\/settings.py/\1/g')"
+
+
+juju-log "Retreiving project database credentials in $app_source_directory/settings.py"
+# Parse the project settings.py file for information
+database_engine="$(cat $(find . -name 'settings.py') | grep -xv " *#.*" | grep ".*ENGINE'\ *:.*" | sed 's/#.*//g' | sed "s/.*ENGINE' *\: *\(.*\) *\, */\1/g" | sed "s/'//g" | sed 's/.*backends\.\(.*\)/\1/g')"
+database_name="$(cat $(find . -name 'settings.py') | grep -xv " *#.*" | grep ".*NAME'\ *:.*" | sed 's/#.*//g' | sed "s/.*NAME' *\: *\(.*\) *\, */\1/g" | sed "s/'//g")" 
+database_user="$(cat $(find . -name 'settings.py') | grep -xv " *#.*" | grep ".*USER'\ *:.*" | sed 's/#.*//g' | sed "s/.*USER' *\: *\(.*\) *\, */\1/g" | sed "s/'//g")" 
+database_pass="$(cat $(find . -name 'settings.py') | grep -xv " *#.*" | grep ".*PASSWORD'\ *:.*" | sed 's/#.*//g' | sed "s/.*PASSWORD' *\: *\(.*\) *\, */\1/g" | sed "s/'//g")" 
+database_host="$(cat $(find . -name 'settings.py') | grep -xv " *#.*" | grep ".*HOST'\ *:.*" | sed 's/#.*//g' | sed "s/.*HOST' *\: *\(.*\) *\, */\1/g" | sed "s/'//g")" 
+# Todo: Figure the Django port thing out with databases
+#database_port="$(cat $(find . -name 'settings.py') | grep -xv " *#.*" | grep ".*PORT'\ *:.*" | sed 's/#.*//g' | sed "s/.*PORT' *\: *\(.*\) *\, */\1/g" | sed "s/'//g")" 
+
+# This is used for the django sites framwork
+site_id="$(cat $(find . -name 'settings.py') | grep -xv " *#.*" | grep ".*SITE_ID\ *=.*" | sed 's/#.*//g' | sed "s/.*SITE_ID *\= *\(.*\) */\1/g" | sed "s/'//g")"
+sites_used="$(cat $(find . -name 'settings.py') | grep -xv " *#.*" | grep ".*django.contrib.sites.*" | sed 's/#.*//g')"
+
+if [ "$database_engine" != "mysql" ]; then
+     juju-log "Critical error. Django-rainbow only supports mysql but project $app_source_package_name uses $database_engine as its database engine"
+     exit 9;
+fi
+
+[ -z "$database_host" ] && database_host="localhost"
+#    database_host=`unit-get private-address`
+
+open-port $project_port/tcp
+
+cp /var/lib/django-rainbow/vhost_temp /etc/apache2/sites-available/vhost_$app_source_package_name
+
+# Get the mysql password that was generated by the install hook
+password=`cat /var/lib/juju/mysql.passwd`
+
+# This is causing prolems with the repo pull, owner permissions needs to be a trusted user.
+# Also, the permissions from development to here is maintained in a mercurial repository
+# chown -R www-data "$repo_dir"
+cd $app_source_directory
+
+# Determine if a database needs to be created for this service
+existing_databases=`mysql --user="root" --password="$password" --silent --execute 'show databases'`
+
+database_exists=false
+for db in $existing_databases; do
+    if [ "$db" = "$database_name" ]; then
+        juju-log "Database $database_name already exists"
+        database_exists=true
+        break;
+    fi
+done
+
+if ( ! $database_exists ); then
+     juju-log "Creating new database"
+     mysqladmin --password="$password" create "$database_name"
+     echo "grant all on $database_name.* to '$database_user'@'$database_host' identified by '$database_pass'" | mysql --password="$password" --database="$database_name"
+fi
+
+if ( ! python manage.py syncdb --noinput 2> /dev/null ); then
+     juju-log "Unable to sync database $database_name with project. Re-issuing credentials."
+     echo "grant all on $database_name.* to '$database_user'@'$database_host' identified by '$database_pass'" | mysql --password="$password" --database="$database_name"
+     if ( ! python manage.py syncdb --noinput ); then
+          juju-log "Unable to set username and password from Django project. Quitting."
+          exit 9;
+     fi
+fi
+
+
+# Put a single site into the django_site table
+if [ -n "$sites_used" -a -n "site_id" ]; then
+     juju-log "Found django.contrib.sites in installed apps. Creating single table with id $site_id."
+     if [ -z "$project_site_name" -o -z "$project_site_domain" ]; then
+          juju-log "Sites framwork has been defined in your settings.py file, but site domain and/or name was not provided in the config."
+          juju-log "Skipping sites framwork"
+     else                   
+          juju-log "Creating sites database entry in $database_name"
+echo "from django.contrib.sites.models import Site
+if Site.objects.filter(id=$site_id).exists():
+   Site.objects.filter(id=$site_id).update(id=$site_id, domain='$site_domain', name='$site_name')" | python manage.py shell
+echo "from django.contrib.sites.models import Site
+if not Site.objects.filter(id=$site_id).exists():
+   Site.objects.create(id=$site_id, domain='$site_domain', name='$site_name')" | python manage.py shell
+
+     fi
+fi
+
+juju-log "Enabling virtual host vhost_$app_source_package_name"
+a2ensite vhost_$app_source_package_name
+
+juju-log "Restarting Apache2 gracefully"
+apache2ctl -k graceful
+
+juju-log "Done"
+
+
+
+
 

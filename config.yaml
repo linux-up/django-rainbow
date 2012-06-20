@@ -1,4 +1,11 @@
 options:
+    rainbow-packages:
+        description: |
+            The standard and basic packages for django-rainbow. These
+            only include what is needed for a basic Django webserver.
+            Any extras can be added below. 
+        type: string
+        default: 'apache2 python-mysqldb libapache2-mod-wsgi git mercurial pwgen python-pip'
     additional-debian-packages:
         description: |
             Additional debian packages to install (eg. python-django-south). This
@@ -15,31 +22,101 @@ options:
         description: |
             The directory to install any provided packages in this config.
         type: string
-        default: '/home/server-packages'
+        default: '/var/lib/django-rainbow/packages'
     re-install-mysql-server:
         description: |
-            Set this to 'true' (or non-empty), if you wish to have mysql removed and purged
-            from the instance. This happens when django-rainbow service is destroyed
-            and then re-deloyed. Leave empty for false and keep any old settings.
+            Set this to true (or non-empty), if you wish to have the mysql client core removed
+            and purged from the instance. This will effectivaly remove and replace the mysql root password.
+            with a random one. This should not remove the database, but no garenties!
+            This executes when django-rainbow service is destroyed and then re-deloyed or the install
+            hook is re-ran. Leave empty for false.
         type: string
         default: ''
     purge-instance:
         description: |
-            Set this to 'true' (or non-empty), if you wish to have all packages
+            Set this to true (or non-empty), if you wish to have all packages
             purged and re-installed. This includes any additional packages that are
-            listed above or have been installed previously. This happens when
-            django-rainbow service is destroyed and then re-deloyed. Leave empty for
-            false and keep any old settings.
+            listed above or have been installed previously. Do this if you have added
+            any packages with dependantcy issues native to this charm.
+            Note: Make sure to remove the native packages in the intall hook.
+            This executes when django-rainbow service is destroyed and then re-deloyed
+            or the install hook is re-ran. 
+            Leave empty for false. 
             --------------------------------------------------------------------
-            DOES NOT INCLUDE MYSQL! If you wan't to re-install mysql than set
-            the "re-install-mysql-server" to true.
+            DOES NOT INCLUDE MYSQL! If you wan't to re-install mysql client than set
+            the re-install-mysql-server to true.
         type: string
-        default: 'true'
-    run-update-upgrade:
+        default: ''
+    revision:
         description: |
-            Set this to 'true' (or non-empty), if you wish to run a apt-get update
-            and upgrade. This is not recomended. Best to leave the Ubuntu version
-            in the hands of the Juju team.   
+            ! ( Change this in the local.yaml file to utilize multiple projects on one instance )
+            This can be altered to re-trigger the config-changed hook. This will update the
+            project code and replace any settings.
+        type: string
+        default: '1'
+    project-additional-debian-packages:
+        description: |
+            ! ( Change this in the local.yaml file to utilize multiple projects on one instance )
+            Additional debian packages to install (eg. python-django-south). This
+            string will be passed to apt-get.
+        type: string
+        default: ''
+    project-additional-pip-packages:
+        description: |
+            ! ( Change this in the local.yaml file to utilize multiple projects on one instance )
+            Additional python packages that are not yet available as Ubuntu/Debian
+            packages.
+        type: string
+        default: ''
+    project-repo-type:
+        description: |
+            ! ( Change this in the local.yaml file to utilize multiple projects on one instance )
+            This is the brand of repository versioning the project uses. Only hg for now...
+            E.g. bzr, hg, git, svn, etc...
+        type: string
+        default: ''
+    project-repo-url:
+        description: |
+            ! ( Change this in the local.yaml file to utilize multiple projects on one instance )
+            The url of the project repository. Only bitbucket is supported currently.
+            E.g. https://bitbucket.org/ubernostrum/django-registration
+                 ssh://user@your-site.com/project
+        type: string
+        default: ''
+    project-repo-username:
+        description: |
+            ! ( Change this in the local.yaml file to utilize multiple projects on one instance )
+            The username of the project repository.
+        type: string
+        default: ''
+    project-repo-password:
+        description: |
+            ! ( Change this in the local.yaml file to utilize multiple projects on one instance )
+            The password of the project repository.
+        type: string
+        default: ''
+    project-site-name:
+        description: |
+            ! ( Change this in the local.yaml file to utilize multiple projects on one instance )
+            (Optional) This is the name given to the site. It is used with emailing and
+            running multiple sites toupled togther. Can be changed with the Django Admin system later.
+            This can be set to anything if your do not have django.contrib.sites and a SITE_ID
+            set in the settings.py file as it will be left to the django default.
+        type: string
+        default: ''
+    project-site-domain:
+        description: |
+            ! ( Change this in the local.yaml file to utilize multiple projects on one instance )
+            (Optional) This is the domian given to the site. It is used with emailing and
+            running multiple sites toupled togther. Can be changed with the Django Admin system later.
+            This can be set to anything if your do not have django.contrib.sites and a SITE_ID
+            set in the settings.py file as it will be left to the django default.
+        type: string
+        default: ''
+    project-apache2-vhost:
+        description: |
+            ! ( Change this in the local.yaml file to utilize multiple projects on one instance )
+            The entire virtual host for this django project.
         type: string
         default: ''
 

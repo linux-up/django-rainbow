@@ -1,46 +1,55 @@
-
 **Django Rainbow** 
 --------
 * * * 
-`charm name: django-rainbow`
+**`charm name: django-rainbow`**
 
-*Django Rainbow* is desinged to deploy many different Django projects
+*Django-rainbow* is designed to deploy many different Django projects
 to the cloud with end-users at the helm. Any Django project which resides
-on a hosted repository can be deployed using this charm. The entire process is automatized and allows scaling of a single project or many at the same time via single or multiple instances. Django-rainbow is a solid tool to deploy and redeploy your projects. You project database, users, and settings, will never be removed or over-written. A relation change to django-rainbow will not take your web site offline for even a second. In fact, after your project is configured, your app can be updated or error fixed by re-triggering the relation.
+on a mercurial hosted repository can be deployed using this charm.
+Django-rainbow is a solid tool to deploy and redeploy your projects. You project database, users, and settings, will never be removed or over-written. A config change to django-rainbow will not take your web site offline for even a second. In fact, after your project is configured, your app can be updated or error fixed by re-triggering the config-changed hook. There are no packages to install on your client for use.
+
 
 **Use:**
->Simply deploy this charm with juju as a service with a *juju deploy django-rainbow*. There are no packages to install on your client.
-
+>Download Django-rainbow with *charm-get django-rainbow*  
+>Deploy the charm with juju as a service with a *juju deploy --repository=. local:precise/django-rainbow*   
+>Edit the *config.yaml* file for any django-rainbow customizations
+>Edit the secondary yaml file to suit your project. This file is called
+*your-project.yaml* by default.
+>The renamed *your-project.yaml* file is deployed with 
+*juju set django-rainbow --config precise/django-rainbow/your-project.yaml*
 * * *
-**REQUIRES:**
 
-`charm name: stripe`  
-
-Deployment of your projects require this simple charm. You will need to create an individually named copy of this charm for each Django project you plan to use and deploy. There is a simple config file in the parent directory called *config.yaml* to edit for your Django project. When both django-rainbow and your stripe are deployed, a *juju add-relation* command will trigger the rainbow-relation-changed hook to:  
->- create a new virtual host provided in the stripe *config.yaml* file  
+Deployment of your projects require editing a config file. You will need to create an unique copy of this config file (*your-project.yaml*) for each Django project you plan to use and deploy. Edit this to represent your Django project. The project must reside on a hosted third party server, e.g. Bit Bucket. When the config file is set, the config-changed hook will,
+>- create or update the virtual host provided in the stripe *your-project.yaml* file  
 >- add your virtual host to the Apache2 sites-available directory
 >- pull or update the project from the hosted repository to the directory listed as your DocumentRoot in the virtual host
 >- parse your *settings.py* file for project settings
->- create the database, user, and other settings in mysql
+>- create the database, user, and other settings in mysql and run a *python manage.py syncdb* command
 
-**Use:** 
->*|* Rename a copy of the stripe charm to something relavent to your Django project.  
-*|* Change the *name* field in the *metadata.yaml* file to something relavent to your project, e.g. stripe-cool-project.  
-*|* Edit the *config.yaml* file in the stripe copy with your project information.  
-**Make sure that when the project repository is pulled onto the server, the         DocumentRoot directory listed in the virtual host is the base directory of the project. This may require changing the project repository directory stucture or virtual host settings a bit.**  
-*|* Deploy the stripe with a *juju deploy stripe-cool-project* command.  
-*|* Add a relation to django-rainbow with a *juju add-relation django-rainbow stripe-cool-project*    
-*|* Don't forget to use a *juju expose django-rainbow* command to make it public and associate an ip address to the machine with django-rainbow.
+**Explanation:**
+> **config.yaml**:   
+This file is the primary settings for django-rainbow. Any project configuration
+settings set in this file will be permanent. It is reasonable to include project settings in here if there is to be only on project per instance. If you wish to launch many Django projects per instance, the *your-project.yaml* file is recommended.
+
+>**your-project.yaml**:
+   All settings in this file relate to a specific Django project repository. It is expected to rename and store this file separate from the charm. One can keep many of these yaml files handy to launch or update live Django projects.
+   
+
+
+**Tips:**  
+*1)* Make sure that when the project repository is pulled onto the server, the         DocumentRoot directory listed in the virtual host is the base directory of the project. This may require changing the project repository directory structure or virtual host settings a bit.    
+*2)* Do not edit any repository data on the instance.  The project should only be
+updated by a config-changed trigger. This is what the revision setting is for in the *your-project.yaml* file.  
+*3) Don't forget to use a *juju expose django-rainbow* command to make it public and associate an ip address to the machine with aws management.
 
 * * *
 
 
 **LIMITATIONS:**
 Django Rainbow is still very new so don't expect too many options as of now.  
-*1)* Currently it only supports Mercurial and Bitbucket for project code hosting.  
+*1)* Currently it only supports Mercurial and Bit bucket for project code hosting.  
 *2)* The only supported database is mysql.  
 
-Also, There may be a way to provide the config.yaml file to Django-rainbow. This would allow one to ditch the stripe charm all-together for an even simpler set-up.
 
 **AUTHOR:**  
 Surgemcgee <RobertSteckroth@gmail.com>  
@@ -63,9 +72,6 @@ Robert Edward Steckroth II
 
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see [http://www.gnu.org/licenses/](http://www.gnu.org/licenses/)
-
-
-
 
 
 

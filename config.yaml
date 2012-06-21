@@ -2,15 +2,15 @@ options:
     revision:
         description: |
             ! ( Change this in the your-project.yaml file to utilize multiple projects on one instance )
-            This can be altered to re-trigger the config-changed hook. This will update the
+            This can be altered to re-trigger the install hook. This will update the
             project code and replace any settings.
         type: string
         default: '1'
     rainbow-packages:
         description: |
             The standard and basic packages for django-rainbow. These
-            only include what is needed for a basic Django webserver.
-            Any extras can be added below. 
+            only include what is needed for a basic Django web server and
+            operation of this charm. Any extras can be added below. 
         type: string
         default: 'apache2 python-mysqldb libapache2-mod-wsgi git mercurial pwgen python-pip'
     additional-apt-get-packages:
@@ -56,7 +56,7 @@ options:
             and purged from the instance. This will effectivaly remove and replace the mysql root password.
             with a random one. This should not remove the database, but no garenties!
             This executes when django-rainbow service is destroyed and then re-deloyed or the install
-            hook is re-ran. Leave empty for false.
+            hook is re-triggerd. Leave empty for false.
         type: string
         default: ''
     purge-instance:
@@ -65,16 +65,16 @@ options:
             purged and re-installed. This includes any additional packages that are
             listed above or have been installed previously. Do this if you have added
             any packages with dependantcy issues native to this charm.
-            Note: Make sure to remove the native packages in the intall hook.
             This executes when django-rainbow service is destroyed and then re-deloyed
             or the install hook is re-ran. 
             Leave empty for false. 
-            --------------------------------------------------------------------
-            DOES NOT INCLUDE MYSQL! If you wan't to re-install mysql client than set
-            the re-install-mysql-server to true.
+            ---------------------------------------------------------------------
+            DOES NOT INCLUDE MYSQL! If you wan't to re-install the mysql client
+            than set the re-install-mysql-server to true.
+            ---------------------------------------------------------------------
         type: string
-        default: 'true'
-    project-additional-debian-packages:
+        default: ''
+    project-additional-apt-get-packages:
         description: |
             ! ( Change this in the your-project.yaml file to utilize multiple projects on one instance )
             Additional debian packages to install (eg. python-django-south). This

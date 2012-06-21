@@ -10,7 +10,7 @@ app_url=`config-get project-repo-url`
 app_uname=`config-get project-repo-username`
 app_pass=`config-get project-repo-password`
 app_vhost=`config-get --format smart project-apache2-vhost`
-stripe_additional_debian_packages=`config-get project-additional-debian-packages`
+stripe_additional_debian_packages=`config-get project-additional-apt-get-packages`
 stripe_additional_pip_packages=`config-get project-additional-pip-packages`
 stripe_additional_git_packages=`config-get project-additional-git-packages`
 stripe_additional_bzr_packages=`config-get project-additional-bzr-packages`
@@ -20,6 +20,8 @@ project_site_name=`config-get project-site-name`
 package_directory=`config-get rainbow-installation-directory`
 
 juju-log "Running revision $revision_trigger"
+
+log_file_rev="$package_directory/config_changed_revision_$revision_trigger.log"
 
 if [ -z "$app_type" -o -z "$app_url" -o -z "$app_vhost" ]; then
      juju-log "Not enough configuration settings to proceed. Quitting."
@@ -32,7 +34,13 @@ cd $package_directory/site_packages
 
 juju-log "Installing additional packages for project."
 
-# Install these if the user defined any in the stripe config.yaml file
+# Add these to the installed file for removal if wanted
+for pkg in $(echo "$stripe_additional_debian_packages"); do
+    echo "$pkg" >> $package_directory/temp_installed
+done;
+
+
+# Install these if the user defined any in the your-project.yaml file
 if [ "$stripe_additional_debian_packages" ]; then
     juju-log "Installing extra debian packages: $stripe_additional_debian_packages"
     apt-get -qqy install $stripe_additional_debian_packages
@@ -44,7 +52,6 @@ if [ "$stripe_additional_pip_packages" ]; then
 fi
 
 
-
 juju-log "Installing bzr packages"
 for bzr_repo in $stripe_additional_bzr_packages; do
 [ -z "$bzr_repo" ] && continue
@@ -53,11 +60,13 @@ bzr_repo_name="$(echo $bzr_repo | sed 's/.*lp:\(.*\)/\1/g' | sed 's/\ //g')"
 
 mkdir $bzr_repo_name
 cd $bzr_repo_name
-( ! bzr branch $bzr_repo 2> /dev/null ) && juju-log "Unable to branch bzr repository $bzr_repo"
+( ! bzr branch $bzr_repo 2>> $log_file_rev ) && juju-log "Unable to branch bzr repository $bzr_repo"
 cd "$(find . -name 'setup.py' | sed 's/setup\.py//g')"
-( ! python setup.py install 2> /dev/null ) && juju-log "Could install bzr package $bzr_repo_name while running python setup.py install"
+( ! python setup.py install 2>> $log_file_rev ) && juju-log "Could install bzr package $bzr_repo_name while running python setup.py install"
 cd $package_directory/site_packages
 done;
+
+
 
 
 juju-log "Installing git packages"
@@ -69,15 +78,16 @@ git_repo_name="$(echo $git_repo | sed 's/.*\/\(.*\)\.git/\1/g' | sed 's/\ //g')"
 
 mkdir $git_repo_name
 cd $git_repo_name
-( ! git clone $git_repo 2> /dev/null ) && juju-log "Unable to git clone repository $git_repo"
+( ! git clone $git_repo 2>> $log_file_rev ) && juju-log "Unable to git clone repository $git_repo"
 cd "$(find . -name 'setup.py' | sed 's/setup\.py//g')"
-( ! python setup.py install 2> /dev/null ) && juju-log "Could install git package $git_repo_name while running python $git_repo_name/setup.py install"
+( ! python setup.py install 2>> $log_file_rev ) && juju-log "Could install git package $git_repo_name while running python $git_repo_name/setup.py install"
 cd $package_directory/site_packages
 done;
 
 
+
 juju-log "Installing bzip packages"
-for bzip_repo in $stripe_additional_bzip_packages do
+for bzip_repo in $stripe_additional_bzip_packages; do
 [ -z "$bzip_repo" ] && continue
 
 bzip_repo_name="$(echo $bzip_repo | sed 's/.*\/\(.*\)\.tar\.gz/\1/g' | sed 's/\ //g')"
@@ -86,13 +96,12 @@ bzip_repo_name="$(echo $bzip_repo | sed 's/.*\/\(.*\)\.tar\.gz/\1/g' | sed 's/\ 
 mkdir $bzip_repo_name
 cd $bzip_repo_name
 
-( ! wget $bzip_repo 2> /dev/null ) && juju-log "Unable to retrieve tar.gz file $git_repo"
-( ! tar xfv * 2> /dev/null ) && juju-log "Unable to extract file $git_repo" 
+( ! wget $bzip_repo 2>> $log_file_rev ) && juju-log "Unable to retrieve tar.gz file $bzip_repo"
+( ! tar xfv * 2>> $log_file_rev ) && juju-log "Unable to extract file $bzip_repo" 
 cd "$(find . -name 'setup.py' | sed 's/setup\.py//g')"
-( ! python setup.py install 2> /dev/null ) && juju-log "Could install bzip package $bzip_repo_name while running python setup.py install"
+( ! python setup.py install 2>> $log_file_rev ) && juju-log "Could install bzip package $bzip_repo_name while running python setup.py install"
 cd $package_directory/packages
 done;
-
 
 
 
@@ -134,7 +143,7 @@ if [ -z "$repo_dir" ]; then
 
      cd $repo_dir
      if [ "$app_type" = "hg" ]; then
-          ( ! hg init 2> /dev/null ) && juju-log "Error running a hg init command. This is probably due to corrupted data in /var/lib/django-rainbow/installed_repos. This should continue working properly however."
+          ( ! hg init 2>> $log_file_rev ) && juju-log "Error running a hg init command. This is probably due to corrupted data in /var/lib/django-rainbow/installed_repos. This should continue working properly however."
 # This will preset the hg init with user and password. Juju cannot accept user input.
 # Keep this echo text to the left. It will be copied to the file this way.
 echo '[paths]
@@ -144,7 +153,7 @@ bb.prefix = https://bitbucket.org
 bb.username = '"$app_uname"'
 bb.password = '"$app_pass"'' > .hg/hgrc
        juju-log "Pulling project for the first time from repository $app_url"
-       if ( ! hg pull --update 2> /dev/null ); then
+       if ( ! hg pull --update 2>> $log_file_rev ); then
             juju-log "Could not fetch repository from $app_url"
             exit 0;
        fi
@@ -172,15 +181,15 @@ app_source_directory="$(find . -name 'settings.py' | sed 's/\(.*\)\/settings.py/
 
 juju-log "Retreiving project database credentials in $app_source_directory/settings.py"
 # Parse the project settings.py file for information
-database_engine="$(cat $(find . -name 'settings.py') | grep -xv " *#.*" | grep ".*ENGINE'\ *:.*" | sed 's/#.*//g' | sed "s/.*ENGINE' *\: *\(.*\) *\, */\1/g" | sed "s/'//g" | sed 's/.*backends\.\(.*\)/\1/g')"
-database_name="$(cat $(find . -name 'settings.py') | grep -xv " *#.*" | grep ".*NAME'\ *:.*" | sed 's/#.*//g' | sed "s/.*NAME' *\: *\(.*\) *\, */\1/g" | sed "s/'//g")" 
-database_user="$(cat $(find . -name 'settings.py') | grep -xv " *#.*" | grep ".*USER'\ *:.*" | sed 's/#.*//g' | sed "s/.*USER' *\: *\(.*\) *\, */\1/g" | sed "s/'//g")" 
-database_pass="$(cat $(find . -name 'settings.py') | grep -xv " *#.*" | grep ".*PASSWORD'\ *:.*" | sed 's/#.*//g' | sed "s/.*PASSWORD' *\: *\(.*\) *\, */\1/g" | sed "s/'//g")" 
-database_host="$(cat $(find . -name 'settings.py') | grep -xv " *#.*" | grep ".*HOST'\ *:.*" | sed 's/#.*//g' | sed "s/.*HOST' *\: *\(.*\) *\, */\1/g" | sed "s/'//g")" 
+database_engine="$(cat $(find . -name 'settings.py') | grep -xv " *#.*" | grep ".*ENGINE'\ *:.*" | sed 's/#.*//g' | sed "s/.*ENGINE' *\: *[\']\(.*\)[\']\ *[\,]*\ */\1/g" | sed 's/.*backends\.\(.*\)/\1/g')"
+database_name="$(cat $(find . -name 'settings.py') | grep -xv " *#.*" | grep ".*NAME'\ *:.*" | sed 's/#.*//g' | sed "s/.*NAME' *\: *[\']\(.*\)[\']\ *[\,]*\ */\1/g")" 
+database_user="$(cat $(find . -name 'settings.py') | grep -xv " *#.*" | grep ".*USER'\ *:.*" | sed 's/#.*//g' | sed "s/.*USER' *\: *[\']\(.*\)[\']\ *[\,]*\ */\1/g")" 
+database_pass="$(cat $(find . -name 'settings.py') | grep -xv " *#.*" | grep ".*PASSWORD'\ *:.*" | sed 's/#.*//g' | sed "s/.*PASSWORD' *\: *[\']\(.*\)[\']\ *[\,]*\ */\1/g")" 
+database_host="$(cat $(find . -name 'settings.py') | grep -xv " *#.*" | grep ".*HOST'\ *:.*" | sed 's/#.*//g' | sed "s/.*HOST' *\: *[\']\(.*\)[\']\ *[\,]*\ */\1/g")" 
 # Todo: Figure the Django port thing out with databases
-#database_port="$(cat $(find . -name 'settings.py') | grep -xv " *#.*" | grep ".*PORT'\ *:.*" | sed 's/#.*//g' | sed "s/.*PORT' *\: *\(.*\) *\, */\1/g" | sed "s/'//g")" 
+#database_port="$(cat $(find . -name 'settings.py') | grep -xv " *#.*" | grep ".*PORT'\ *:.*" | sed 's/#.*//g' | sed "s/.*PORT' *\: *[\']\(.*\)[\']\ *[\,]*\ */\1/g")" 
 
-# This is used for the django sites framwork
+# This is used for the django sites framework
 site_id="$(cat $(find . -name 'settings.py') | grep -xv " *#.*" | grep ".*SITE_ID\ *=.*" | sed 's/#.*//g' | sed "s/.*SITE_ID *\= *\(.*\) */\1/g" | sed "s/'//g")"
 sites_used="$(cat $(find . -name 'settings.py') | grep -xv " *#.*" | grep ".*django.contrib.sites.*" | sed 's/#.*//g')"
 
@@ -222,7 +231,7 @@ if ( ! $database_exists ); then
      echo "grant all on $database_name.* to '$database_user'@'$database_host' identified by '$database_pass'" | mysql --password="$password" --database="$database_name"
 fi
 
-if ( ! python manage.py syncdb --noinput 2> /dev/null ); then
+if ( ! python manage.py syncdb --noinput 2>> $log_file_rev ); then
      juju-log "Unable to sync database $database_name with project. Re-issuing credentials."
      echo "grant all on $database_name.* to '$database_user'@'$database_host' identified by '$database_pass'" | mysql --password="$password" --database="$database_name"
      if ( ! python manage.py syncdb --noinput ); then

@@ -1,6 +1,6 @@
 django-rainbow:
     revision: '2'
-    project-additional-debian-packages: 'sl'
+    project-additional-apt-get-packages: 'sl'
     project-additional-pip-packages: ''
     project-additional-git-packages: 'https://github.com/omab/django-social-auth.git'
     project-additional-bzr-packages: 'lp:django-openid-auth'

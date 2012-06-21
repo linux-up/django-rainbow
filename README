@@ -3,35 +3,38 @@
 * * * 
 **`charm name: django-rainbow`**
 
-*Django-rainbow* is designed to deploy many different Django projects
-to the cloud with end-users at the helm. Any Django project which resides
-on a mercurial hosted repository can be deployed using this charm.
-Django-rainbow is a solid tool to deploy and redeploy your projects. You project database, users, and settings, will never be removed or over-written. A config change to django-rainbow will not take your web site offline for even a second. In fact, after your project is configured, your app can be updated or error fixed by re-triggering the config-changed hook. There are no packages to install on your client for use.
+*Django-rainbow* is designed to automate deployment of Django web projects
+to the cloud. Any Django project which resides on a hosted mercurial (hg) repository can be deployed using this charm.
+Django-rainbow is a solid tool with a forgiving design regarding re-triggering.
+Data is safe from deletion without becoming isolated from the charm. Database and project data are never removed, replaced, or deleted. This charm dose not require additional packages or have any dependencies outside of juju. All scripts are written in/for the Bash shell using Ubuntu 12.04 64 bit (Precise Pangolin). 
 
 
 **Use:**
->Download Django-rainbow with *charm-get django-rainbow*  
->Deploy the charm with juju as a service with a *juju deploy --repository=. local:precise/django-rainbow*   
->Edit the *config.yaml* file for any django-rainbow customizations
->Edit the secondary yaml file to suit your project. This file is called
-*your-project.yaml* by default.
->The renamed *your-project.yaml* file is deployed with 
-*juju set django-rainbow --config precise/django-rainbow/your-project.yaml*
+>Put Django-rainbow into a local charm repository.  
+>Deploy the charm --> *juju deploy --repository=. local:precise/django-rainbow*   
+>Edit the *config.yaml* file with any django-rainbow customizations.  
+>Edit the secondary project config file. This file is called
+*your-project.yaml* by default.  
+>The renamed *your-project.yaml* file is deployed with -->
+*juju set django-rainbow --config /path/to/your-project.yaml*
 * * *
 
-Deployment of your projects require editing a config file. You will need to create an unique copy of this config file (*your-project.yaml*) for each Django project you plan to use and deploy. Edit this to represent your Django project. The project must reside on a hosted third party server, e.g. Bit Bucket. When the config file is set, the config-changed hook will,
->- create or update the virtual host provided in the stripe *your-project.yaml* file  
->- add your virtual host to the Apache2 sites-available directory
->- pull or update the project from the hosted repository to the directory listed as your DocumentRoot in the virtual host
->- parse your *settings.py* file for project settings
->- create the database, user, and other settings in mysql and run a *python manage.py syncdb* command
+It is expected to store the *your-project.yaml* files in a direcory for future use. These project config files can be distributed, allowing anyone to launch the  project to the cloud. The project must reside on a hosted third party mercurial repository, e.g. Bit Bucket. When the project config file is customized, the config-changed hook will,
+>- Create or update the virtual host provided in the *your-project.yaml* file and it to the Apache2 sites-available directory.
+>- Pull or update the project from the hosted repository to the directory listed as your DocumentRoot in the virtual host. Any changes will be public immediately.
+>- Parse the project *settings.py* file for database, and project settings.
+>- Create or update the database, user, and tables in mysql and configure the project.
 
-**Explanation:**
-> **config.yaml**:   
-This file is the primary settings for django-rainbow. Any project configuration
-settings set in this file will be permanent. It is reasonable to include project settings in here if there is to be only on project per instance. If you wish to launch many Django projects per instance, the *your-project.yaml* file is recommended.
+Logging files contain any run-time errors acoording to the current revision number. Installation logs use the integer in the *revision* file of the charm base directory. Configuration logs will use the *revision* number set in the *your-project.yaml* file.
 
->**your-project.yaml**:
+**Configuation:**
+
+> **-config.yaml-**   
+This file is the primary settings for django-rainbow. All of the settings set in this file will install with django-rainbow. It is reasonable to include project settings in here if there is to be only on project per instance. If you wish to launch many Django projects per instance, the *your-project.yaml* file will need to be utilized. 
+ 
+
+
+>**-your-project.yaml-**  
    All settings in this file relate to a specific Django project repository. It is expected to rename and store this file separate from the charm. One can keep many of these yaml files handy to launch or update live Django projects.
    
 
@@ -40,8 +43,8 @@ settings set in this file will be permanent. It is reasonable to include project
 *1)* Make sure that when the project repository is pulled onto the server, the         DocumentRoot directory listed in the virtual host is the base directory of the project. This may require changing the project repository directory structure or virtual host settings a bit.    
 *2)* Do not edit any repository data on the instance.  The project should only be
 updated by a config-changed trigger. This is what the revision setting is for in the *your-project.yaml* file.  
-*4)* Your project can updated by increasing the revision number in this file. Another *juju set django-rainbow --config /path/to/your-project.yaml* will trigger the config-changed hook.   
-*3) Don't forget to use a *juju expose django-rainbow* command to make it public and associate an ip address to the machine with aws management.
+*3)* A *juju set django-rainbow --config /path/to/your-project.yaml* will trigger the config-changed hook.   
+*4)* Don't forget to use a *juju expose django-rainbow* command to make it public and associate an ip address to the machine with aws management.
 
 * * *
 
@@ -73,7 +76,6 @@ Robert Edward Steckroth II
 
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see [http://www.gnu.org/licenses/](http://www.gnu.org/licenses/)
-
 
 
 

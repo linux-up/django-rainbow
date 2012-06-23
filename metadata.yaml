@@ -1,11 +1,13 @@
 name: django-rainbow
-summary: Installs Apache2, wsgi, mysql, Django, and Django-registration.
+summary: Installs the Django-rainbow platform onto a cloud instance.
 maintainer: "Surgemcgee <RobertSteckroth@gmail.com>"
-description: |2
-  Django-rainbow is a primary service charm for a generic charm called a "stripe". Each of these stripe templates
-  will contain basic informatin on seperate Django projects hosted on a repository. This will provide an easy way to launch
-  your Django projects to the cloud and maintain them individually with juju on a single instance. This charm is mainly
-  for development and testing but can be used to deploy and maintain many sites professionally.
+description: |
+   Django-rainbow is a full-fledged Django web project deployment charm. One can deploy many projects onto a single instance
+   by maintaining individual config files pertaining to the project. Django-rainbow is a safe and convenient platform
+   for development or production web server management. Web sites are updated instantly using mercurial based versioning.
+   Your django-rainbow project file can be stored for future use, allowing anyone using juju a fail safe method to 
+   develop and deploy your project without creating conflicting structure. Django-rainbow is a "Set it and forget it"
+   platform leaving development issues with the developers :)
 provides:
   rainbow:
     interface: django-rainbow

@@ -25,9 +25,9 @@ It is expected to store the *your-project.yaml* files in a direcory for future u
 >- Parse the project *settings.py* file for database, and project settings.
 >- Create or update the database, user, and tables in mysql and configure the project.
 
-Logging files contain any run-time errors acoording to the current revision number. Installation logs use the integer in the *revision* file of the charm base directory. Configuration logs will use the *revision* number set in the *your-project.yaml* file.
+Logging files contain any run-time errors according to the current revision number. Installation logs use the integer in the *revision* file of the charm base directory. Configuration logs will use the *revision* number set in the *your-project.yaml* file.
 
-**Configuation:**
+**Configuration:**
 
 > **-config.yaml-**   
 This file is the primary settings for django-rainbow. All of the settings set in this file will install with django-rainbow. It is reasonable to include project settings in here if there is to be only on project per instance. If you wish to launch many Django projects per instance, the *your-project.yaml* file will need to be utilized. 

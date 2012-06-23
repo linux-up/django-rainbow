@@ -2,5 +2,5 @@
 - Does hg update have user input? Yes sometimes, uhhh maybe, shouldn't. ( hg pull --update --force )?
 - No need to parse settings.py if it is unchanged and no syncdb is needed.
 - Upgrade charm hook might be usefull.
-- Add bzr to repository availiblity for project
+- Add bzr and/or svn to repository availiblity for project
 

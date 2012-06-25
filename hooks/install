@@ -2,7 +2,7 @@
 
 # Created by Robert Edward Steckroth II, RobertSteckroth@gmail.com
 
-set -eux # -x for verbose logging to juju debug-log
+set -eu # -x for verbose logging to juju debug-log
 
 juju-log "Starting installation of Django-rainbow"
 
@@ -11,6 +11,7 @@ additional_debian_packages=`config-get additional-apt-get-packages`
 additional_pip_packages=`config-get additional-pip-packages`
 bzr_repo_packages=`config-get additional-bzr-packages`
 git_repo_packages=`config-get additional-git-packages`
+hg_repo_packages=`config-get additional-hg-packages`
 bzip_repo_packages=`config-get additional-bzip-packages`
 
 reinstall_mysql=`config-get re-install-mysql-server`
@@ -30,7 +31,7 @@ if ! [ -e "$package_directory" ]; then
        fi
 fi
 
-log_file_rev="$package_directory/install_revision_$(cat revision).log"
+log_file_rev="$package_directory/logs/install_revision_$(cat revision).log"
 
 
 # Create the directory for charm logging
@@ -51,18 +52,18 @@ fi
 
 
 # Gonna store our packages case of a service destroy
-if ! [ -e "$package_directory/installed" ]; then
-       touch $package_directory/installed
+if ! [ -e "$package_directory/installed-packages" ]; then
+       touch $package_directory/installed-packages
 fi
 
 
 # Erase data if exists and poplulate the temp file for listed packages
-echo "" > $package_directory/temp_installed
+echo "" > $package_directory/previously-installed-packages
 for pkg in $(echo "$native_packages"); do
-    echo "$pkg" >> $package_directory/temp_installed
+    echo "$pkg" >> $package_directory/previously-installed-packages
 done;
 for pkg in $(echo "$additional_debian_packages"); do
-    echo "$pkg" >> $package_directory/temp_installed
+    echo "$pkg" >> $package_directory/previously-installed-packages
 done;
 
 
@@ -70,9 +71,9 @@ done;
 if [ -n "$purge_instance" ]; then
 
      juju-log "Purging instance"
-     # Installed file now contains any packages to be removed from previous install
+     # installed-packages file now contains any packages to be removed from previous install
 
-     for remove_pkg in $(cat $package_directory/installed); do
+     for remove_pkg in $(cat $package_directory/installed-packages); do
          [ -z "$remove_pkg" ] && continue     # Dont need empty data
          # Can't have spaces either
          remove_pkg="$(echo "$remove_pkg" | sed 's/\ *//g')"
@@ -92,13 +93,13 @@ if [ -n "$purge_instance" ]; then
 
 fi # Endo if [ -n "$purge_instance" ]; then
 
-# Add all packages to the installed file for next run re-installation
+# Add all packages to the installed-packages file for next run re-installation
 
-# new_list="$(comm -13 <(sort $package_directory/installed) <(sort $package_directory/temp_installed))"
-# Overwrite the installed file with cp
-cp $package_directory/temp_installed $package_directory/installed
+# new_list="$(comm -13 <(sort $package_directory/installed-packages) <(sort $package_directory/previously-installed-packages))"
+# Overwrite the installed-packages file with cp
+cp $package_directory/previously-installed-packages $package_directory/installed-packages
 
-# Installed file now contains all additional packages to be installed now and removed next time this happens
+# installed-packages file now contains all additional packages to be installed now and removed next time this happens
 
 # Install stock packages
      juju-log "Installing $native_packages via apt-get"
@@ -112,7 +113,39 @@ cp $package_directory/temp_installed $package_directory/installed
 cd $package_directory/packages
 
 
-juju-log "Installing bzr packages"
+function install_package {
+
+py_install="$(find . -name 'setup.py' | head -1 | sed 's/setup\.py//g')"
+binary_install="$(find . -name 'configure' | head -1 | sed 's/configure//g')"
+
+# Give these realy high numbers or make them equal so we can know
+# which file is lower in the directory tree. These varables will be the charactor length
+# of the directory path.
+if [ -z "$py_install" -a -z "$binary_install" ]; then
+     juju-log "Could not find a setup.py or configure script to install with at directory $package_directory/site_packages/$1" 
+     return;
+elif [ ${#py_install} -gt ${#binary_install} -a -n "$binary_install" -o -z "$py_install" ]; then
+     # This will use conigure, make, make install if it finds a configure script
+     # lower in the directory tree than a setup.py.
+     cd $binary_install
+     ( ! ./configure 2>> $log_file_rev ) && juju-log "Could not run configure command at directory $package_directory/site_packages/$1" 
+     ( ! make 2>> $log_file_rev ) && juju-log "Could not run make command at directory $package_directory/site_packages/$1" 
+     ( ! make install 2>> $log_file_rev ) && juju-log "Could not run make install command at directory $package_directory/site_packages/$1" 
+else
+     # Install with setup.py because it is found lower in the package directory tree"
+     cd $py_install
+     ( ! python setup.py install 2>> $log_file_rev ) && juju-log "Could install bzip package $1 while running python setup.py install"
+fi
+
+# cd back into the base packages directory for another install
+cd $package_directory/packages
+
+}
+
+
+
+
+juju-log "Installing baazar packages..."
 for bzr_repo in $bzr_repo_packages; do
 [ -z "$bzr_repo" ] && continue
 bzr_repo_name="$(echo $bzr_repo | sed 's/.*lp:\(.*\)/\1/g' | sed 's/\ //g')"
@@ -121,13 +154,13 @@ bzr_repo_name="$(echo $bzr_repo | sed 's/.*lp:\(.*\)/\1/g' | sed 's/\ //g')"
 mkdir $bzr_repo_name
 cd $bzr_repo_name
 ( ! bzr branch $bzr_repo 2>> $log_file_rev ) && juju-log "Unable to branch bzr repository $bzr_repo"
-cd "$(find . -name 'setup.py' | sed 's/setup\.py//g')"
-( ! python setup.py install 2>> $log_file_rev ) && juju-log "Could install bzr package $bzr_repo_name while running python setup.py install"
-cd $package_directory/packages
+
+install_package $bzr_repo_name
+
 done;
 
 
-juju-log "Installing git packages"
+juju-log "Installing git packages..."
 for git_repo in $git_repo_packages; do
 [ -z "$git_repo" ] && continue
 
@@ -137,37 +170,44 @@ git_repo_name="$(echo $git_repo | sed 's/.*\/\(.*\)\.git/\1/g' | sed 's/\ //g')"
 mkdir $git_repo_name
 cd $git_repo_name
 ( ! git clone $git_repo 2>> $log_file_rev ) && juju-log "Unable to git clone repository $git_repo"
-cd "$(find . -name 'setup.py' | sed 's/setup\.py//g')"
-( ! python setup.py install 2>> $log_file_rev ) && juju-log "Could install git package $git_repo_name while running python setup.py install"
-cd $package_directory/packages
+
+install_package $git_repo_name
+
 done;
 
 
-juju-log "Installing bzip packages"
+juju-log "Installing mercurial packages..."
+for hg_repo in $hg_repo_packages; do
+[ -z "$hg_repo" ] && continue
+
+hg_repo_name="$(echo $git_repo | sed 's/.*\/\(.*\)\.git/\1/g' | sed 's/\ //g')"
+[ -e $hg_repo_name ] && continue
+
+mkdir $hg_repo_name
+cd $hg_repo_name
+( ! hg clone $hg_repo 2>> $log_file_rev ) && juju-log "Unable to git clone repository $hg_repo"
+
+install_package $hg_repo_name
+
+done;
+
+
+juju-log "Installing tarball packages..."
 for bzip_repo in $bzip_repo_packages; do
 [ -z "$bzip_repo" ] && continue
 
-bzip_repo_name="$(echo $bzip_repo | sed 's/.*\/\(.*\)\.tar\.gz/\1/g' | sed 's/\ //g')"
+bzip_repo_name="$(echo $bzip_repo | sed 's/.*[\/]\(.*\)/\1/g' | sed 's/\ *//g')"
 [ -e $bzip_repo_name ] && continue
 
 mkdir $bzip_repo_name
 cd $bzip_repo_name
 
-( ! wget $bzip_repo 2>> $log_file_rev ) && juju-log "Unable to retrieve tar.gz file $git_repo"
-( ! tar xfv * 2>> $log_file_rev ) && juju-log "Unable to extract file $git_repo" 
+( ! wget $bzip_repo 2>> $log_file_rev ) && juju-log "Unable to retrieve tar.gz file $bzip_repo"
+( ! tar xfv * 2>> $log_file_rev ) && juju-log "Unable to extract file $bzip_repo" 
 
-cd "$(find . -name 'setup.py' | sed 's/setup\.py//g')"
-( ! python setup.py install 2>> $log_file_rev ) && juju-log "Could install bzip package $bzip_repo_name while running python setup.py install"
-cd $package_directory/packages
+install_package $bzip_repo_name
+
 done;
-
-cd $package_directory/packages
-
-if ! [ -e "Django-1.4" ]; then 
-       wget https://www.djangoproject.com/download/1.4/tarball
-       tar -xvf tarball
-       python Django-1.4/setup.py install
-fi
 
 
 juju-log "Checking for package mysql-server..."

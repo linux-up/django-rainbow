@@ -1,6 +1,5 @@
-- Update the readme file to explain the config options better.
 - Does hg update have user input? Yes sometimes, uhhh maybe, shouldn't. ( hg pull --update --force )?
 - No need to parse settings.py if it is unchanged and no syncdb is needed.
-- Upgrade charm hook might be usefull.
-- Add bzr and/or svn to repository availiblity for project
-
+- Add bzr and/or svn to repository availiblity for project repository hosting
+- Need version consitancy with packages for instances. Don't want different versions based on times installed.
+- Tar extraction needs bzip2 or bzip detection.

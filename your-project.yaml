@@ -3,6 +3,7 @@ django-rainbow:
     project-additional-apt-get-packages: 'sl'
     project-additional-pip-packages: ''
     project-additional-git-packages: 'https://github.com/omab/django-social-auth.git'
+    project-additional-hg-packages: ''
     project-additional-bzr-packages: 'lp:django-openid-auth'
     project-additional-bzip-packages: 'http://pypi.python.org/packages/source/p/python-openid/python-openid-2.2.5.tar.gz'
     project-repo-type: 'hg'

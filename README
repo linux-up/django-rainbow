@@ -16,7 +16,8 @@ Data is safe from deletion without becoming isolated from the charm. Database an
 >Edit the secondary project config file. This file is called
 *your-project.yaml* by default.  
 >The renamed *your-project.yaml* file is deployed with -->
-*juju set django-rainbow --config /path/to/your-project.yaml*
+*juju set django-rainbow --config /path/to/your-project.yaml*  
+>Trigger the config-changed hook to update or add a project to the instance.
 * * *
 
 It is expected to store the *your-project.yaml* files in a direcory for future use. These project config files can be distributed, allowing anyone to launch the  project to the cloud. The project must reside on a hosted third party mercurial repository, e.g. Bit Bucket. When the project config file is customized, the config-changed hook will,
@@ -29,8 +30,12 @@ Logging files contain any run-time errors according to the current revision numb
 
 **Configuration:**
 
+> **-Explanation-**  
+Django-rainbow will automatically fetch and search your package urls for either
+*setup.py* or *configure* scripts. The first match in the lowest section of the directory will be assumed to be the installation type, e.g. Python install is assumed if setup.py in found in the next directory and a configure script in a subsequent directory of the extracted package. This applies to all package urls provided in both the *config.yaml* and *your-project.yaml* file except for the apt-get and pip packages. With this, one can include a git repository with either *setup.py* or binary compilation *configure* script. After, make, make install, commands will be issued if appropriate. Note: Remember to include a gcc compiler and any dependencies if binary code is to be fetched and compiled. Currently, only tar.bz extraction is possible.
+
 > **-config.yaml-**   
-This file is the primary settings for django-rainbow. All of the settings set in this file will install with django-rainbow. It is reasonable to include project settings in here if there is to be only on project per instance. If you wish to launch many Django projects per instance, the *your-project.yaml* file will need to be utilized. 
+This file is the primary settings for django-rainbow. All of the settings set in this file will install with django-rainbow. It is reasonable to include project settings in here if there is to be only one project per django-rainbow instance. If you wish to launch many Django projects per instance, the *your-project.yaml* file will need to be utilized. 
  
 
 
@@ -40,19 +45,19 @@ This file is the primary settings for django-rainbow. All of the settings set in
 
 
 **Tips:**  
-*1)* Make sure that when the project repository is pulled onto the server, the         DocumentRoot directory listed in the virtual host is the base directory of the project. This may require changing the project repository directory structure or virtual host settings a bit.    
-*2)* Do not edit any repository data on the instance.  The project should only be
-updated by a config-changed trigger. This is what the revision setting is for in the *your-project.yaml* file.  
-*3)* A *juju set django-rainbow --config /path/to/your-project.yaml* will trigger the config-changed hook.   
-*4)* Don't forget to use a *juju expose django-rainbow* command to make it public and associate an ip address to the machine with aws management.
-
+*1)* Make sure that when the project repository is pulled onto the server, the *DocumentRoot* directory listed in the virtual host is the base directory of the project. This may require changing the project repository directory structure or virtual host settings a bit.    
+*2)* Do not edit any repository data on the instance.  The project should only be updated by a config-changed trigger. This is what the revision setting is for in the config files. 
+*3)* A *juju set django-rainbow --config /path/to/your-project.yaml* will trigger the config-changed hook. For single projects with the config.yaml file, a *juju set django-rainbow revision=[num]* can be used.   
+*4)* All of the django-rainbow data files are kept in the directory specified with the *rainbow-installation-directory:* option in config.yaml.
+*5)* Many of the django-rainbow settings are described/explained in the config.yaml option descriptions.
+*6)* Comment out the *set -eux* command in the config-changed and install hooks. This will prevent plain text printing of your repository password.
 * * *
 
 
 **LIMITATIONS:**
-Django Rainbow is still very new so don't expect too many options as of now.  
-*1)* Currently it only supports Mercurial and Bit bucket for project code hosting.  
-*2)* The only supported database is mysql.  
+Django Rainbow is a generic platform to deploy Django projects. Don't expect too much versatility.  
+*1)* Django-rainbow only supports Mercurial and Bit bucket for project code hosting.  
+*2)* The only supported project database is mysql.  
 
 
 **AUTHOR:**  
@@ -76,7 +81,6 @@ Robert Edward Steckroth II
 
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see [http://www.gnu.org/licenses/](http://www.gnu.org/licenses/)
-
 
 
 

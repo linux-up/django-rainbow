@@ -13,6 +13,7 @@ app_vhost=`config-get --format smart project-apache2-vhost`
 stripe_additional_debian_packages=`config-get project-additional-apt-get-packages`
 stripe_additional_pip_packages=`config-get project-additional-pip-packages`
 stripe_additional_git_packages=`config-get project-additional-git-packages`
+stripe_additional_hg_packages=`config-get project-additional-hg-packages`
 stripe_additional_bzr_packages=`config-get project-additional-bzr-packages`
 stripe_additional_bzip_packages=`config-get project-additional-bzip-packages`
 project_site_domain=`config-get project-site-domian`
@@ -21,7 +22,7 @@ package_directory=`config-get rainbow-installation-directory`
 
 juju-log "Running revision $revision_trigger"
 
-log_file_rev="$package_directory/config_changed_revision_$revision_trigger.log"
+log_file_rev="$package_directory/logs/config_changed_revision_$revision_trigger.log"
 
 if [ -z "$app_type" -o -z "$app_url" -o -z "$app_vhost" ]; then
      juju-log "Not enough configuration settings to proceed. Quitting."
@@ -32,7 +33,7 @@ fi
 
 cd $package_directory/site_packages
 
-juju-log "Installing additional packages for project."
+juju-log "Installing additional packages for project..."
 
 # Add these to the installed file for removal if wanted
 for pkg in $(echo "$stripe_additional_debian_packages"); do
@@ -52,7 +53,38 @@ if [ "$stripe_additional_pip_packages" ]; then
 fi
 
 
-juju-log "Installing bzr packages"
+function install_package {
+
+py_install="$(find . -name 'setup.py' | head -1 | sed 's/setup\.py//g')"
+binary_install="$(find . -name 'configure' | head -1 | sed 's/configure//g')"
+
+# Give these realy high numbers or make them equal so we can know
+# which file is lower in the directory tree. These varables will be the charactor length
+# of the directory path.
+
+if [ -z "$py_install" -a -z "$binary_install" ]; then
+     juju-log "Could not find a setup.py or configure script to install with at directory $package_directory/site_packages/$1" 
+     return;
+elif [ ${#py_install} -gt ${#binary_install} -a -n "$binary_install" -o -z "$py_install" ]; then
+     # This will use conigure, make, make install if it finds a configure script
+     # lower in the directory tree than a setup.py.
+     cd $binary_install
+     ( ! ./configure 2>> $log_file_rev ) && juju-log "Could not run configure command at directory $package_directory/site_packages/$1" 
+     ( ! make 2>> $log_file_rev ) && juju-log "Could not run make command at directory $package_directory/site_packages/$1" 
+     ( ! make install 2>> $log_file_rev ) && juju-log "Could not run make install command at directory $package_directory/site_packages/$1" 
+else
+     # Install with setup.py because it is found lower in the package directory tree"
+     cd $py_install
+     ( ! python setup.py install 2>> $log_file_rev ) && juju-log "Could install bzip package $1 while running python setup.py install"
+fi
+
+# cd back into the base packages directory for another install
+cd $package_directory/packages
+
+}
+
+
+juju-log "Installing baazar packages..."
 for bzr_repo in $stripe_additional_bzr_packages; do
 [ -z "$bzr_repo" ] && continue
 bzr_repo_name="$(echo $bzr_repo | sed 's/.*lp:\(.*\)/\1/g' | sed 's/\ //g')"
@@ -61,15 +93,12 @@ bzr_repo_name="$(echo $bzr_repo | sed 's/.*lp:\(.*\)/\1/g' | sed 's/\ //g')"
 mkdir $bzr_repo_name
 cd $bzr_repo_name
 ( ! bzr branch $bzr_repo 2>> $log_file_rev ) && juju-log "Unable to branch bzr repository $bzr_repo"
-cd "$(find . -name 'setup.py' | sed 's/setup\.py//g')"
-( ! python setup.py install 2>> $log_file_rev ) && juju-log "Could install bzr package $bzr_repo_name while running python setup.py install"
-cd $package_directory/site_packages
+
+install_package $bzr_repo_name
+
 done;
 
-
-
-
-juju-log "Installing git packages"
+juju-log "Installing git packages..."
 for git_repo in $stripe_additional_git_packages; do
 [ -z "$git_repo" ] && continue
 
@@ -79,18 +108,32 @@ git_repo_name="$(echo $git_repo | sed 's/.*\/\(.*\)\.git/\1/g' | sed 's/\ //g')"
 mkdir $git_repo_name
 cd $git_repo_name
 ( ! git clone $git_repo 2>> $log_file_rev ) && juju-log "Unable to git clone repository $git_repo"
-cd "$(find . -name 'setup.py' | sed 's/setup\.py//g')"
-( ! python setup.py install 2>> $log_file_rev ) && juju-log "Could install git package $git_repo_name while running python $git_repo_name/setup.py install"
-cd $package_directory/site_packages
+
+install_package $git_repo_name
+
+done;
+
+juju-log "Installing mercurial packages..."
+for hg_repo in $stripe_additional_hg_packages; do
+[ -z "$hg_repo" ] && continue
+
+hg_repo_name="$(echo $git_repo | sed 's/.*\/\(.*\)\.git/\1/g' | sed 's/\ //g')"
+[ -e $hg_repo_name ] && continue
+
+mkdir $hg_repo_name
+cd $hg_repo_name
+( ! hg clone $hg_repo 2>> $log_file_rev ) && juju-log "Unable to git clone repository $hg_repo"
+
+install_package $hg_repo_name
+
 done;
 
 
-
-juju-log "Installing bzip packages"
+juju-log "Installing tarball packages..."
 for bzip_repo in $stripe_additional_bzip_packages; do
 [ -z "$bzip_repo" ] && continue
 
-bzip_repo_name="$(echo $bzip_repo | sed 's/.*\/\(.*\)\.tar\.gz/\1/g' | sed 's/\ //g')"
+bzip_repo_name="$(echo $bzip_repo | sed 's/.*[\/]\(.*\)/\1/g' | sed 's/\ *//g')"
 [ -e $bzip_repo_name ] && continue
 
 mkdir $bzip_repo_name
@@ -98,9 +141,9 @@ cd $bzip_repo_name
 
 ( ! wget $bzip_repo 2>> $log_file_rev ) && juju-log "Unable to retrieve tar.gz file $bzip_repo"
 ( ! tar xfv * 2>> $log_file_rev ) && juju-log "Unable to extract file $bzip_repo" 
-cd "$(find . -name 'setup.py' | sed 's/setup\.py//g')"
-( ! python setup.py install 2>> $log_file_rev ) && juju-log "Could install bzip package $bzip_repo_name while running python setup.py install"
-cd $package_directory/packages
+
+install_package $bzip_repo_name
+
 done;
 
 
@@ -123,11 +166,11 @@ else
 fi
 
      # empty the temporary vhost file
-     echo '' > /var/lib/django-rainbow/vhost_temp
+     echo '' > /var/lib/django-rainbow/latest-vhost
      juju-log "Creating virtual host file."
      echo -e "$app_vhost \neof" | while read line; do
         [ "$line" = "eof" ] && break
-        echo $line >> /var/lib/django-rainbow/vhost_temp
+        echo $line >> /var/lib/django-rainbow/latest-vhost
      done;
 
 
@@ -136,7 +179,7 @@ if [ -z "$repo_dir" ]; then
      # Only supports mercurial. Need to have bzr, git, and svn.
      # Fetch the project directory from the virtual host DocumentRoot setting
 
-     repo_dir="$(cat /var/lib/django-rainbow/vhost_temp | grep -xv " *#.*" | grep ".*DocumentRoot\ *" | sed 's/#.*//g' | sed 's/\ *DocumentRoot\ *//g')"
+     repo_dir="$(cat /var/lib/django-rainbow/latest-vhost | grep -xv " *#.*" | grep ".*DocumentRoot\ *" | sed 's/#.*//g' | sed 's/\ *DocumentRoot\ *//g')"
      # Log the new repository locations
      echo "$repo_dir""^*^""$app_url" >> /var/lib/django-rainbow/installed_repos
      ! [ -e "$repo_dir" ] && mkdir -p $repo_dir
@@ -172,7 +215,7 @@ fi # Endo if [ -z "$repo_dir" ]; then
 
 
 # Retrieve to port number from the temporary virtual host file
-project_port="$(cat /var/lib/django-rainbow/vhost_temp | grep -i ".*\< *VirtualHost.*\:.*\>\ *" | sed 's/#.*//g' | sed 's/.*\: *\([0-9]*\) *\>.*/\1/g')"
+project_port="$(cat /var/lib/django-rainbow/latest-vhost | grep -i ".*\< *VirtualHost.*\:.*\>\ *" | sed 's/#.*//g' | sed 's/.*\: *\([0-9]*\) *\>.*/\1/g')"
 # Store the name of the directory which conatins the settings.py file as the project name
 app_source_package_name="$(find . -iname 'settings.py' | sed 's/.*\/\(.*\)\/settings.py/\1/g')"
 # This is the absolute path to the setting.py file for the striped Django project
@@ -203,7 +246,7 @@ fi
 
 open-port $project_port/tcp
 
-cp /var/lib/django-rainbow/vhost_temp /etc/apache2/sites-available/vhost_$app_source_package_name
+cp /var/lib/django-rainbow/latest-vhost /etc/apache2/sites-available/vhost_$app_source_package_name
 
 # Get the mysql password that was generated by the install hook
 password=`cat /var/lib/juju/mysql.passwd`

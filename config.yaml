@@ -21,30 +21,35 @@ options:
         default: ''
     additional-pip-packages:
         description: |
-            Additional python packages that are not yet available as Ubuntu/Debian
-            packages.
+            Additional python packages that are not yet available as Ubuntu/Debian packages. This
+            will be passed to pip install.
         type: string
         default: ''
     additional-bzr-packages:
         description: |
-            Additional python packages that are not yet available as Ubuntu/Debian
-            packages.
+            Additional package urls that are not yet available as Ubuntu/Debian. These need to contain either source
+            code with a configure file, or a python package with a setup.py file. Seperate urls with a space.
         type: string
         default: ''
     additional-git-packages:
         description: |
-            Additional python packages that are not yet available as Ubuntu/Debian
-            packages.
+            Additional package urls that are not yet available as Ubuntu/Debian. These need to contain either source
+            code with a configure file, or a python package with a setup.py file. Seperate urls with a space.
+        type: string
+        default: ''
+    additional-hg-packages:
+        description: |
+            Additional package urls that are not yet available as Ubuntu/Debian. These need to contain either source
+            code with a configure file, or a python package with a setup.py file. Seperate urls with a space.
         type: string
         default: ''
     additional-bzip-packages:
         description: |
-            ! ( Change this in the your-project.yaml file to utilize multiple projects on one instance )
-            Additional python packages that are not yet available as Ubuntu/Debian. This needs
-            to be in the tar.gz format.
-            packages.
+            Additional package urls that are not yet available as Ubuntu/Debian. These need to contain either source
+            code with a configure file or a python package with a setup.py file. This URL needs to conatain a 
+            file with a .tar.bz extension. Seperate urls with a space. Note: you can change the Django version here.
         type: string
-        default: ''
+        default: 'https://www.djangoproject.com/download/1.4/tarball'
     rainbow-installation-directory:
         description: |
             The directory that Django-rainbow will use to store data and install packages.
@@ -84,30 +89,36 @@ options:
     project-additional-pip-packages:
         description: |
             ! ( Change this in the your-project.yaml file to utilize multiple projects on one instance )
-            Additional python packages that are not yet available as Ubuntu/Debian
-            packages.
+            Additional python packages that are not yet available as Ubuntu/Debian packages.
         type: string
         default: ''
     project-additional-bzr-packages:
         description: |
             ! ( Change this in the your-project.yaml file to utilize multiple projects on one instance )
-            Additional python packages that are not yet available as Ubuntu/Debian
-            packages.
+            Additional package urls that are not yet available as Ubuntu/Debian. These need to contain either source
+            code with a configure file, or a python package with a setup.py file. Seperate urls with a space.
         type: string
         default: ''
     project-additional-git-packages:
         description: |
             ! ( Change this in the your-project.yaml file to utilize multiple projects on one instance )
-            Additional python packages that are not yet available as Ubuntu/Debian
-            packages.
+            Additional package urls that are not yet available as Ubuntu/Debian. These need to contain either source
+            code with a configure file, or a python package with a setup.py file. Seperate urls with a space.
+        type: string
+        default: ''
+    project-additional-hg-packages:
+        description: |
+            ! ( Change this in the your-project.yaml file to utilize multiple projects on one instance )
+            Additional package urls that are not yet available as Ubuntu/Debian. These need to contain either source
+            code with a configure file, or a python package with a setup.py file. Seperate urls with a space.
         type: string
         default: ''
     project-additional-bzip-packages:
         description: |
             ! ( Change this in the your-project.yaml file to utilize multiple projects on one instance )
-            Additional python packages that are not yet available as Ubuntu/Debian. This needs
-            to be in the tar.gz format.
-            packages.
+            Additional package urls that are not yet available as Ubuntu/Debian. These need to contain either source
+            code with a configure file or a python package with a setup.py file. This URL needs to conatain a 
+            file with a .tar.bz extension. Seperate urls with a space.
         type: string
         default: ''
     project-repo-type:

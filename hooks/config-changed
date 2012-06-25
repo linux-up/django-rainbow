@@ -58,10 +58,6 @@ function install_package {
 py_install="$(find . -name 'setup.py' | head -1 | sed 's/setup\.py//g')"
 binary_install="$(find . -name 'configure' | head -1 | sed 's/configure//g')"
 
-# Give these realy high numbers or make them equal so we can know
-# which file is lower in the directory tree. These varables will be the charactor length
-# of the directory path.
-
 if [ -z "$py_install" -a -z "$binary_install" ]; then
      juju-log "Could not find a setup.py or configure script to install with at directory $package_directory/site_packages/$1" 
      return;

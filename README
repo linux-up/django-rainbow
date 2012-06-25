@@ -6,7 +6,7 @@
 *Django-rainbow* is designed to automate deployment of Django web projects
 to the cloud. Any Django project which resides on a hosted mercurial (hg) repository can be deployed using this charm.
 Django-rainbow is a solid tool with a forgiving design regarding re-triggering.
-Data is safe from deletion without becoming isolated from the charm. Database and project data are never removed, replaced, or deleted. This charm dose not require additional packages or have any dependencies outside of juju. All scripts are written in/for the Bash shell using Ubuntu 12.04 64 bit (Precise Pangolin). 
+Data is safe from deletion without becoming isolated from the charm. Database and project data are never removed, replaced, or deleted. This charm does not require additional packages or have any dependencies outside of juju. All scripts are written in/for the Bash shell using Ubuntu 12.04 64 bit (Precise Pangolin). 
 
 
 **Use:**
@@ -21,7 +21,7 @@ Data is safe from deletion without becoming isolated from the charm. Database an
 * * *
 
 It is expected to store the *your-project.yaml* files in a direcory for future use. These project config files can be distributed, allowing anyone to launch the  project to the cloud. The project must reside on a hosted third party mercurial repository, e.g. Bit Bucket. When the project config file is customized, the config-changed hook will,
->- Create or update the virtual host provided in the *your-project.yaml* file and it to the Apache2 sites-available directory.
+>- Create or update the virtual host provided in the *your-project.yaml* file and place it in the Apache2 sites-available directory.
 >- Pull or update the project from the hosted repository to the directory listed as your DocumentRoot in the virtual host. Any changes will be public immediately.
 >- Parse the project *settings.py* file for database, and project settings.
 >- Create or update the database, user, and tables in mysql and configure the project.
@@ -32,7 +32,7 @@ Logging files contain any run-time errors according to the current revision numb
 
 > **-Explanation-**  
 Django-rainbow will automatically fetch and search your package urls for either
-*setup.py* or *configure* scripts. The first match in the lowest section of the directory will be assumed to be the installation type, e.g. Python install is assumed if setup.py in found in the next directory and a configure script in a subsequent directory of the extracted package. This applies to all package urls provided in both the *config.yaml* and *your-project.yaml* file except for the apt-get and pip packages. With this, one can include a git repository with either *setup.py* or binary compilation *configure* script. After, make, make install, commands will be issued if appropriate. Note: Remember to include a gcc compiler and any dependencies if binary code is to be fetched and compiled. Currently, only tar.bz extraction is possible.
+*setup.py* or *configure* scripts. The first match in the lowest section of the directory will be assumed to be the installation type, e.g. Python install is assumed if setup.py is found in the next directory and a configure script in a subsequent directory of the extracted package. This applies to all package urls provided in both the *config.yaml* and *your-project.yaml* file except for the apt-get and pip packages. With this, one can include a git repository with either *setup.py* or binary compilation *configure* script. After, make, make install, commands will be issued if appropriate. Note: Remember to include a gcc compiler and any dependencies if binary code is to be fetched and compiled.
 
 > **-config.yaml-**   
 This file is the primary settings for django-rainbow. All of the settings set in this file will install with django-rainbow. It is reasonable to include project settings in here if there is to be only one project per django-rainbow instance. If you wish to launch many Django projects per instance, the *your-project.yaml* file will need to be utilized. 

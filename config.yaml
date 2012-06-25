@@ -74,7 +74,7 @@ options:
             or the install hook is re-ran. 
             Leave empty for false. 
             ---------------------------------------------------------------------
-            DOES NOT INCLUDE MYSQL! If you wan't to re-install the mysql client
+            DOES NOT INCLUDE MYSQL! If you want to re-install the mysql client
             than set the re-install-mysql-server to true.
             ---------------------------------------------------------------------
         type: string

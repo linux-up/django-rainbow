@@ -2,7 +2,7 @@
 
 # Created by Robert Edward Steckroth II, RobertSteckroth@gmail.com
 
-set -eu # -x for verbose logging to juju debug-log
+set -e # -x for verbose logging to juju debug-log
 
 juju-log "Starting installation of Django-rainbow"
 
@@ -193,7 +193,7 @@ juju-log "Installing tarball packages..."
 for bzip_repo in $bzip_repo_packages; do
 [ -z "$bzip_repo" ] && continue
 
-bzip_repo_name="$(echo $bzip_repo | sed 's/.*[\/]\(.*\)/\1/g' | sed 's/\ *//g')"
+bzip_repo_name="$(echo $bzip_repo | sed 's/.*[\/]\(.*\)/\1/g' | sed 's/\ //g')"
 [ -e $bzip_repo_name ] && continue
 
 mkdir $bzip_repo_name
@@ -228,6 +228,8 @@ if [ -z "$package" -o -n "$reinstall_mysql" ]; then
      PASSWORD=`pwgen 10 1`
    # Store the password for later use by the rainbow-relation-changed hook for this service unit.
      echo $PASSWORD > /var/lib/juju/mysql.passwd
+     chown root:root /var/lib/juju/mysql.passwd
+     chmod 660 /var/lib/juju/mysql.passwd
      echo mysql-server-5.1 mysql-server/root_password password $PASSWORD | debconf-set-selections
      echo mysql-server-5.1 mysql-server/root_password_again password $PASSWORD | debconf-set-selections
      juju-log "mysql-server settings preseeded, now installing via apt-get"

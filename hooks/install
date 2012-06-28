@@ -66,7 +66,6 @@ for pkg in $(echo "$additional_debian_packages"); do
     echo "$pkg" >> $package_directory/previously-installed-packages
 done;
 
-
 # Store and remove packages if specified in config with "purge_instance"
 if [ -n "$purge_instance" ]; then
 

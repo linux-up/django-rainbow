@@ -75,7 +75,7 @@ else
 fi
 
 # cd back into the base packages directory for another install
-cd $package_directory/packages
+cd $package_directory/site_packages
 
 }
 
@@ -98,7 +98,7 @@ juju-log "Installing git packages..."
 for git_repo in $stripe_additional_git_packages; do
 [ -z "$git_repo" ] && continue
 
-git_repo_name="$(echo $git_repo | sed 's/.*\/\(.*\)\.git/\1/g' | sed 's/\ //g')"
+git_repo_name="$(echo $git_repo | sed 's/.*\/\(.*\)1\.git/\1/g' | sed 's/\ //g')"
 [ -e "$git_repo_name" ] && continue
 
 mkdir $git_repo_name

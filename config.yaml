@@ -1,64 +1,64 @@
 options:
     revision:
         description: |
-            ! ( Change this in the your-project.yaml file to utilize multiple projects on one instance )
-            This can be altered to re-trigger the install hook. This will update the
-            project code and replace any settings.
+            The revision number of this file.            
         type: string
         default: '1'
     rainbow-packages:
         description: |
             The standard and basic packages for django-rainbow. These
             only include what is needed for a basic Django web server and
-            operation of this charm. Any extras can be added below. 
+            operation of this charm. Others can be added below. 
         type: string
         default: 'apache2 python-mysqldb libapache2-mod-wsgi git mercurial pwgen python-pip'
-    additional-apt-get-packages:
+    apt-get-packages:
         description: |
-            Additional debian packages to install (eg. python-django-south). This
+            Debian packages to install (eg. python-django-south). This
             string will be passed to apt-get.
         type: string
         default: ''
-    additional-pip-packages:
+    pip-packages:
         description: |
-            Additional python packages that are not yet available as Ubuntu/Debian packages. This
-            will be passed to pip install.
+            These will be passed to pip install.
         type: string
         default: ''
-    additional-bzr-packages:
+    tar-packages:
         description: |
-            Additional package urls that are not yet available as Ubuntu/Debian. These need to contain either source
-            code with a configure file, or a python package with a setup.py file. Seperate urls with a space.
-        type: string
-        default: ''
-    additional-git-packages:
-        description: |
-            Additional package urls that are not yet available as Ubuntu/Debian. These need to contain either source
-            code with a configure file, or a python package with a setup.py file. Seperate urls with a space.
-        type: string
-        default: ''
-    additional-hg-packages:
-        description: |
-            Additional package urls that are not yet available as Ubuntu/Debian. These need to contain either source
-            code with a configure file, or a python package with a setup.py file. Seperate urls with a space.
-        type: string
-        default: ''
-    additional-bzip-packages:
-        description: |
-            Additional package urls that are not yet available as Ubuntu/Debian. These need to contain either source
-            code with a configure file or a python package with a setup.py file. This URL needs to conatain a 
-            file with a .tar.bz extension. Seperate urls with a space. Note: you can change the Django version here.
+            These need to contain either source code with a configure file,
+            or a python package with a setup.py file. These URLs need to conatain a 
+            file with tar compession. You can use either tar, gzip (tar.gz), or bzip2 (tar.bz2)
+            compressed files. Seperate urls with a space.
+            Note: you can change the Django version here.
         type: string
         default: 'https://www.djangoproject.com/download/1.4/tarball'
+    bzr-packages:
+        description: |
+            These need to contain either source code with a configure file,
+            or a python package with a setup.py file. Seperate urls with a space.
+        type: string
+        default: ''
+    git-packages:
+        description: |
+            These need to contain either source code with a configure file,
+            or a python package with a setup.py file. Seperate urls with a space.
+        type: string
+        default: ''
+    hg-packages:
+        description: |
+            These need to contain either source code with a configure file,
+            or a python package with a setup.py file. Seperate urls with a space.
+        type: string
+        default: ''
     rainbow-installation-directory:
         description: |
-            The directory that Django-rainbow will use to store data and install packages.
+            The directory that Django-rainbow will use to store data. This included
+            packages, logs, and installation settings.
         type: string
         default: '/var/lib/django-rainbow'
     re-install-mysql-server:
         description: |
             Set this to true (or non-empty), if you wish to have the mysql client core removed
-            and purged from the instance. This will effectivaly remove and replace the mysql root password.
+            and purged from the instance. This will effectively remove and replace the mysql root password.
             with a random one. This should not remove the database, but no garenties!
             This executes when django-rainbow service is destroyed and then re-deloyed or the install
             hook is re-triggerd. Leave empty for false.
@@ -79,48 +79,6 @@ options:
             ---------------------------------------------------------------------
         type: string
         default: ''
-    project-additional-apt-get-packages:
-        description: |
-            ! ( Change this in the your-project.yaml file to utilize multiple projects on one instance )
-            Additional debian packages to install (eg. python-django-south). This
-            string will be passed to apt-get.
-        type: string
-        default: ''
-    project-additional-pip-packages:
-        description: |
-            ! ( Change this in the your-project.yaml file to utilize multiple projects on one instance )
-            Additional python packages that are not yet available as Ubuntu/Debian packages.
-        type: string
-        default: ''
-    project-additional-bzr-packages:
-        description: |
-            ! ( Change this in the your-project.yaml file to utilize multiple projects on one instance )
-            Additional package urls that are not yet available as Ubuntu/Debian. These need to contain either source
-            code with a configure file, or a python package with a setup.py file. Seperate urls with a space.
-        type: string
-        default: ''
-    project-additional-git-packages:
-        description: |
-            ! ( Change this in the your-project.yaml file to utilize multiple projects on one instance )
-            Additional package urls that are not yet available as Ubuntu/Debian. These need to contain either source
-            code with a configure file, or a python package with a setup.py file. Seperate urls with a space.
-        type: string
-        default: ''
-    project-additional-hg-packages:
-        description: |
-            ! ( Change this in the your-project.yaml file to utilize multiple projects on one instance )
-            Additional package urls that are not yet available as Ubuntu/Debian. These need to contain either source
-            code with a configure file, or a python package with a setup.py file. Seperate urls with a space.
-        type: string
-        default: ''
-    project-additional-bzip-packages:
-        description: |
-            ! ( Change this in the your-project.yaml file to utilize multiple projects on one instance )
-            Additional package urls that are not yet available as Ubuntu/Debian. These need to contain either source
-            code with a configure file or a python package with a setup.py file. This URL needs to conatain a 
-            file with a .tar.bz extension. Seperate urls with a space.
-        type: string
-        default: ''
     project-repo-type:
         description: |
             ! ( Change this in the your-project.yaml file to utilize multiple projects on one instance )
@@ -130,7 +88,6 @@ options:
         default: ''
     project-repo-url:
         description: |
-            ! ( Change this in the your-project.yaml file to utilize multiple projects on one instance )
             The url of the project repository. Only bitbucket is supported currently.
             E.g. https://bitbucket.org/ubernostrum/django-registration
                  ssh://user@your-site.com/project
@@ -138,38 +95,34 @@ options:
         default: ''
     project-repo-username:
         description: |
-            ! ( Change this in the your-project.yaml file to utilize multiple projects on one instance )
             The username of the project repository.
         type: string
         default: ''
     project-repo-password:
         description: |
-            ! ( Change this in the your-project.yaml file to utilize multiple projects on one instance )
             The password of the project repository.
         type: string
         default: ''
     project-site-name:
         description: |
-            ! ( Change this in the your-project.yaml file to utilize multiple projects on one instance )
             (Optional) This is the name given to the site. It is used with emailing and
             running multiple sites toupled togther. Can be changed with the Django Admin system later.
-            This can be set to anything if your do not have django.contrib.sites and a SITE_ID
-            set in the settings.py file as it will be left to the django default.
+            This option will be ignored if your do not have django.contrib.sites and a SITE_ID
+            specified in the settings.py file.
         type: string
         default: ''
     project-site-domain:
         description: |
-            ! ( Change this in the your-project.yaml file to utilize multiple projects on one instance )
             (Optional) This is the domian given to the site. It is used with emailing and
             running multiple sites toupled togther. Can be changed with the Django Admin system later.
-            This can be set to anything if your do not have django.contrib.sites and a SITE_ID
-            set in the settings.py file as it will be left to the django default.
+            This option will be ignored if your do not have django.contrib.sites and a SITE_ID
+            specified in the settings.py file.
         type: string
         default: ''
     project-apache2-vhost:
         description: |
-            ! ( Change this in the your-project.yaml file to utilize multiple projects on one instance )
-            The entire virtual host for this django project.
+            The entire virtual host for this django project. This will be place in a individual
+            file and loaded with a2ensite.
         type: string
         default: ''
 

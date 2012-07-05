@@ -11,8 +11,8 @@ Data is safe from deletion without becoming isolated from the charm. Database an
 
 **Use:**
 >Put Django-rainbow into a local charm repository.  
->Deploy the charm --> *juju deploy --repository=. local:precise/django-rainbow*   
 >Edit the *config.yaml* file with any django-rainbow customizations.  
+>Deploy the charm --> *juju deploy --repository=. local:precise/django-rainbow*   
 >Edit the secondary project config file. This file is called
 *your-project.yaml* by default.  
 >The renamed *your-project.yaml* file is deployed with -->

@@ -297,8 +297,7 @@ if [ -n "$sites_used" -a -n "$site_id" ]; then
           fi
           mv -f $package_directory/rainbow.conf/site_fixture.yaml $package_directory/rainbow.conf/site_fixture.yaml.old
           mv -f $package_directory/rainbow.conf/site_fixture.yaml.new $package_directory/rainbow.conf/site_fixture.yaml
-
-
+          python manage.py loaddata
      fi
 fi
 

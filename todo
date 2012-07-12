@@ -1,11 +1,8 @@
-- No need to parse settings.py if it is unchanged and no syncdb is needed.
+- Add fixture support for data pre-load
 - Add bzr and/or svn to repository availiblity for project repository hosting
 - Need version consitancy with packages for instances. Don't want different versions based on times installed.
-- Tar extraction needs bzip2 or bzip detection.
 
 
 
-Done: Fixxed the hg user input problem when the site repository is changed on the instance and in the hosted repository.
-The update -C option will discard any changes the the live site data and use the repository pull in full.
 
 

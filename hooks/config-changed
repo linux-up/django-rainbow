@@ -2,6 +2,7 @@
 
 # Created by Robert Edward Steckroth II, RobertSteckroth@gmail.com
 set -e # -x for verbose logging to juju debug-log
+IFS="$(echo -e "\n\r")"
 
 juju-log "Integrating project with django-rainbow."
 revision_trigger=`config-get revision`
@@ -190,7 +191,7 @@ cd $app_source_directory
 
 if $need_stored_entry; then
    juju-log "First time project initialization detected. Adding to entries in stored_settings."
-   repo_modifiy_time="$(ls -l --time-style=+%m%d%Y%H%M%S $app_source_directory/settings.py | cut -d' ' -f6)"
+   repo_modifiy_time="$(ls -l --time-style=+%m%d%Y%H%M%S settings.py | cut -d' ' -f6)"
    echo "$repo_dir $app_url $repo_modifiy_time" >> $package_directory/rainbow.conf/installed_projects
 fi
 
@@ -259,24 +260,44 @@ cp $package_directory/rainbow.conf/latest_vhost /etc/apache2/sites-available/vho
 # Also, I believe the permissions from development to here is maintained in a mercurial repository
 # chown -R www-data "$repo_dir"
 
-
-     site_id="$(cat $(find . -name 'settings.py') | grep -xv " *#.*" | grep ".*SITE_ID\ *=.*" | sed 's/#.*//g' | sed "s/.*SITE_ID *\= *\(.*\) */\1/g" | sed "s/'//g")"
-     sites_used="$(cat $(find . -name 'settings.py') | grep -xv " *#.*" | grep ".*django.contrib.sites.*" | sed 's/#.*//g')"
+site_id="$(cat $(find . -name 'settings.py') | grep -xv " *#.*" | grep ".*SITE_ID\ *=.*" | sed 's/#.*//g' | sed "s/.*SITE_ID *\= *\(.*\) */\1/g" | sed "s/'//g")"
+sites_used="$(cat $(find . -name 'settings.py') | grep -xv " *#.*" | grep ".*django.contrib.sites.*" | sed 's/#.*//g')"
 
 # Put a single site into the django_site table
-if [ -n "$sites_used" -a -n "site_id" ]; then
+if [ -n "$sites_used" -a -n "$site_id" ]; then
      juju-log "Found django.contrib.sites in installed apps. Creating single table with id $site_id."
      if [ -z "$project_site_name" -o -z "$project_site_domain" ]; then
           juju-log "Sites framwork has been defined in your settings.py file, but site domain and/or name was not provided in the config."
           juju-log "Skipping sites framwork. This can be added in the admin cosole as well."
      else                   
-          juju-log "Creating sites database entry in $database_name"
-echo "from django.contrib.sites.models import Site
-if Site.objects.filter(id=$site_id).exists():
-   Site.objects.filter(id=$site_id).update(id=$site_id, domain='$site_domain', name='$site_name')" | python manage.py shell
-echo "from django.contrib.sites.models import Site
-if not Site.objects.filter(id=$site_id).exists():
-   Site.objects.create(id=$site_id, domain='$site_domain', name='$site_name')" | python manage.py shell
+          juju-log "Adding the fixture table entry for $database_name in $package_directory/rainbow.conf/site_fixture.yaml"
+          # Change the site table entry in the fixture file
+          need_entry=true
+          while read -r line; do
+                if [[ "${line}" =~ "pk: ${site_id}" ]]; then
+                      need_entry=false
+                      echo "${line}" >> $package_directory/rainbow.conf/site_fixture.yaml.new
+                      read -r fieldLine
+                      echo "${fieldLine}" >> $package_directory/rainbow.conf/site_fixture.yaml.new
+                      read -r domainLine
+                      echo "${domainLine/: */: ${project_site_domain}}" >> $package_directory/rainbow.conf/site_fixture.yaml.new
+                      read -r nameLine
+                      echo "${nameLine/: */: ${project_site_name}}" >> $package_directory/rainbow.conf/site_fixture.yaml.new
+                else
+                      echo "$line" >> $package_directory/rainbow.conf/site_fixture.yaml.new
+                fi
+          done <<< $package_directory/rainbow.conf/site_fixture.yaml
+
+          if $need_entry; then
+             echo '- model: sites.site
+  pk: '"$site_id"'
+  fields:
+    domain: '"$project_site_domain"'
+    name: '"$project_site_name"'' >> $package_directory/rainbow.conf/site_fixture.yaml.new
+          fi
+          mv -f $package_directory/rainbow.conf/site_fixture.yaml $package_directory/rainbow.conf/site_fixture.yaml.old
+          mv -f $package_directory/rainbow.conf/site_fixture.yaml.new $package_directory/rainbow.conf/site_fixture.yaml
+
 
      fi
 fi

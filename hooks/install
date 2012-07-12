@@ -3,6 +3,7 @@
 # Created by Robert Edward Steckroth II, RobertSteckroth@gmail.com
 
 set -e # -x for verbose logging to juju debug-log
+IFS="$(echo -e "\n\r")"
 
 juju-log "Starting installation of Django-rainbow"
 
@@ -46,6 +47,12 @@ fi
 if ! [ -e "$package_directory/rainbow.conf/installed_projects" ]; then
        touch $package_directory/rainbow.conf/installed_projects
 fi
+
+# This will create the fixture yaml file to populate the sites framework 
+if ! [ -e "$package_directory/rainbow.conf/site_fixture.yaml" ]; then
+       touch $package_directory/rainbow.conf/site_fixture.yaml
+fi
+
 
 
 # Store and remove packages if specified in config with "purge_instance"

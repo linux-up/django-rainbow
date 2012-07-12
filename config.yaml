@@ -78,7 +78,7 @@ options:
             than set the re-install-mysql-server to true.
             ---------------------------------------------------------------------
         type: string
-        default: ''
+        default: 'true'
     project-repo-type:
         description: |
             ! ( Change this in the your-project.yaml file to utilize multiple projects on one instance )

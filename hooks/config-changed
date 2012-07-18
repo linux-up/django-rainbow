@@ -2,26 +2,28 @@
 
 # Created by Robert Edward Steckroth II, RobertSteckroth@gmail.com
 set -e # -x for verbose logging to juju debug-log
-IFS="$(echo -e "\n\r")"
 
 juju-log "Integrating project with django-rainbow."
-revision_trigger=`config-get revision`
-app_type=`config-get project-repo-type`
-app_url=`config-get project-repo-url`
-app_uname=`config-get project-repo-username`
-app_pass=`config-get project-repo-password`
-app_vhost=`config-get --format smart project-apache2-vhost`
+revision_trigger="$(config-get revision)"
+app_type="$(config-get project-repo-type)"
+app_url="$(config-get project-repo-url)"
+app_uname="$(config-get project-repo-username)"
+app_pass="$(config-get project-repo-password)"
+app_vhost="$(config-get --format smart project-apache2-vhost)"
 
-debian_packages=`config-get apt-get-packages`
-pip_packages=`config-get pip-packages`
-bzr_packages=`config-get bzr-packages`
-git_packages=`config-get git-packages`
-hg_packages=`config-get hg-packages`
-tar_packages=`config-get tar-packages`
+debian_packages="$(config-get apt-get-packages)"
+pip_packages="$(config-get pip-packages)"
+bzr_packages="$(config-get bzr-packages)"
+git_packages="$(config-get git-packages)"
+hg_packages="$(config-get hg-packages)"
+tar_packages="$(config-get tar-packages)"
 
-project_site_domain=`config-get project-site-domian`
-project_site_name=`config-get project-site-name`
-package_directory=`config-get rainbow-installation-directory`
+project_site_domain="$(config-get project-site-domain)"
+project_site_name="$(config-get project-site-name)"
+package_directory="$(config-get rainbow-installation-directory)"
+update_database="$(config-get always-update-database)"
+update_sites="$(config-get always-update-sites-framework)"
+
 
 juju-log "Running revision $revision_trigger"
 log_file_rev="$package_directory/logs/config_changed_revision_$revision_trigger.log"
@@ -119,7 +121,7 @@ done;
 
 if [ -z "$app_type" -o -z "$app_url" -o -z "$app_vhost" ]; then
      juju-log "Not enough configuration settings to proceed with project installation, halting."
-     juju-log "Django-rainbow needs the following options in [config.yaml] or [your-project.yaml] to install a django app: project-repo-type, project-repo-username, project-repo-password."
+     juju-log "Django-rainbow needs the following options in [config.yaml] or [your-project.yaml] to install a django app: project-repo-url, project-repo-type, and: project-repo-username, project-repo-password (for private repositorys)."
      exit 0;
 fi
 
@@ -132,11 +134,11 @@ repo_dir=""
 repo_url=""
 repo_modifiy_time=""
 while read stored_settings; do
-      repo_url="$(echo $stored_settings | cut -d' ' -f1)"
-      repo_dir="$(echo $stored_settings | cut -d' ' -f2)"
+      repo_dir="$(echo $stored_settings | cut -d' ' -f1)"
+      repo_url="$(echo $stored_settings | cut -d' ' -f2)"
       repo_modifiy_time="$(echo $stored_settings | cut -d' ' -f3)"
       [ "$repo_url" = "$app_url" ] && break || repo_dir=""
-done <$package_directory/rainbow.conf/installed_projects
+done < $package_directory/rainbow.conf/installed_projects
 
 # empty the temporary vhost file
 echo '' > $package_directory/rainbow.conf/latest_vhost
@@ -150,6 +152,8 @@ done;
 # Install a new repository if the $repo_dir is not in the stored_settings
 if [ -z "$repo_dir" ]; then
      need_stored_entry=true
+     repo_url=""
+     repo_modifiy_time=""
      juju-log "Project repository not found on instance. Logging the new project data."
      # Only supports mercurial. Need to have bzr, git, and svn.
      # Fetch the project directory from the virtual host DocumentRoot setting
@@ -158,7 +162,7 @@ if [ -z "$repo_dir" ]; then
 
      if [ "$app_type" = "hg" ]; then
           cd $repo_dir
-          ( ! hg init 2>> $log_file_rev ) && juju-log "Error running a hg init command. This is probably due to corrupted data in $package_directory/rainbow.conf/installed_projects. We should continue working properly however."
+          ( ! hg init 2>> $log_file_rev ) && juju-log "Error running a hg init command. This is probably due to altered/corrupted data in $package_directory/rainbow.conf/installed_projects. We should continue working properly however."
 # This will preset the hg init with user and password. Juju cannot accept user input. Keep this echo text to the left. It will be copied to the file this way.
 echo '[paths]
 default = '"$app_url"'
@@ -171,6 +175,7 @@ bb.password = '"$app_pass"'' > .hg/hgrc
 fi # Endo if [ -z "$repo_dir" ]; then
 
 # Update the project according to the repository types here
+cd $repo_dir
 if [ "$app_type" = "hg" ]; then
      juju-log "Pulling and updating project from repository $app_url"
      if ( ! hg pull 2>> $log_file_rev || ! hg update -C 2>> $log_file_rev ); then
@@ -189,64 +194,71 @@ app_source_directory="$(find . -name 'settings.py' | sed 's/\(.*\)\/settings.py/
 # Log the new repository locations
 cd $app_source_directory
 
+new_repo_modifiy_time="$(ls -l --time-style=+%m%d%Y%H%M%S settings.py | cut -d' ' -f6)"
+
 if $need_stored_entry; then
    juju-log "First time project initialization detected. Adding to entries in stored_settings."
-   repo_modifiy_time="$(ls -l --time-style=+%m%d%Y%H%M%S settings.py | cut -d' ' -f6)"
-   echo "$repo_dir $app_url $repo_modifiy_time" >> $package_directory/rainbow.conf/installed_projects
+   echo "$repo_dir $app_url $new_repo_modifiy_time" >> $package_directory/rainbow.conf/installed_projects
 fi
 
 # This will tell us if the settings.py file has been modified. There is no need to update the database if not.
-if  $need_stored_entry || [ "$(ls -l --time-style=+%m%d%Y%H%M%S $app_source_directory/settings.py | cut -d' ' -f6)" != "$repo_modifiy_time" ]; then
-     juju-log "$app_source_directory/settings.py file has been changed in project $app_source_package_name. Retreiving project database credentials..."
-     # Parse the project settings.py file for information
-     database_engine="$(cat $(find . -name 'settings.py') | grep -xv " *#.*" | grep ".*ENGINE'\ *:.*" | sed 's/#.*//g' | sed "s/.*ENGINE' *\: *[\']\(.*\)[\']\ *[\,]*\ */\1/g" | sed 's/.*backends\.\(.*\)/\1/g')"
-     database_name="$(cat $(find . -name 'settings.py') | grep -xv " *#.*" | grep ".*NAME'\ *:.*" | sed 's/#.*//g' | sed "s/.*NAME' *\: *[\']\(.*\)[\']\ *[\,]*\ */\1/g")" 
-     database_user="$(cat $(find . -name 'settings.py') | grep -xv " *#.*" | grep ".*USER'\ *:.*" | sed 's/#.*//g' | sed "s/.*USER' *\: *[\']\(.*\)[\']\ *[\,]*\ */\1/g")" 
-     database_pass="$(cat $(find . -name 'settings.py') | grep -xv " *#.*" | grep ".*PASSWORD'\ *:.*" | sed 's/#.*//g' | sed "s/.*PASSWORD' *\: *[\']\(.*\)[\']\ *[\,]*\ */\1/g")" 
-     database_host="$(cat $(find . -name 'settings.py') | grep -xv " *#.*" | grep ".*HOST'\ *:.*" | sed 's/#.*//g' | sed "s/.*HOST' *\: *[\']\(.*\)[\']\ *[\,]*\ */\1/g")" 
-     # Todo: Figure the Django port thing out with databases
-     #database_port="$(cat $(find . -name 'settings.py') | grep -xv " *#.*" | grep ".*PORT'\ *:.*" | sed 's/#.*//g' | sed "s/.*PORT' *\: *[\']\(.*\)[\']\ *[\,]*\ */\1/g")" 
+if $need_stored_entry || [ -n "$update_database" -o "$new_repo_modifiy_time" != "$repo_modifiy_time" ]; then
+   juju-log "settings.py file has been changed in project $app_source_package_name or option [always-update-database] is set to non-empty in the yaml."
+   juju-log "Retreiving project database credentials..."
+   # Log the new modified time for this settings.py file by replacing the line in installed_projects.
 
-     # This is used for the django sites framework
+   # This is a work around. Without the testing the hook will error
+   if [ -z "$(grep -v "$repo_dir" $package_directory/rainbow.conf/installed_projects 2>> $log_file_rev)" ]; then
+        echo "$repo_dir $app_url $new_repo_modifiy_time" > $package_directory/rainbow.conf/installed_projects
+   else
+        echo "$repo_dir $app_url $new_repo_modifiy_time" > $package_directory/rainbow.conf/installed_projects_temp
+        grep -v "$repo_dir" $package_directory/rainbow.conf/installed_projects >> $package_directory/rainbow.conf/installed_projects_temp
+        mv -f $package_directory/rainbow.conf/installed_projects_temp $package_directory/rainbow.conf/installed_projects
+   fi
 
-     if [ "$database_engine" != "mysql" ]; then
-          juju-log "Critical error. Django-rainbow only supports mysql but project $app_source_package_name uses $database_engine as its database engine"
-          exit 9;
-     fi
+   # Parse the project settings.py file for information
+   database_engine="$(cat $(find . -name 'settings.py') | grep -xv " *#.*" | grep ".*ENGINE'\ *:.*" | sed 's/#.*//g' | sed "s/.*ENGINE' *\: *[\']\(.*\)[\']\ *[\,]*\ */\1/g" | sed 's/.*backends\.\(.*\)/\1/g')"
+   database_name="$(cat $(find . -name 'settings.py') | grep -xv " *#.*" | grep ".*NAME'\ *:.*" | sed 's/#.*//g' | sed "s/.*NAME' *\: *[\']\(.*\)[\']\ *[\,]*\ */\1/g")" 
+   database_user="$(cat $(find . -name 'settings.py') | grep -xv " *#.*" | grep ".*USER'\ *:.*" | sed 's/#.*//g' | sed "s/.*USER' *\: *[\']\(.*\)[\']\ *[\,]*\ */\1/g")" 
+   database_pass="$(cat $(find . -name 'settings.py') | grep -xv " *#.*" | grep ".*PASSWORD'\ *:.*" | sed 's/#.*//g' | sed "s/.*PASSWORD' *\: *[\']\(.*\)[\']\ *[\,]*\ */\1/g")" 
+   database_host="$(cat $(find . -name 'settings.py') | grep -xv " *#.*" | grep ".*HOST'\ *:.*" | sed 's/#.*//g' | sed "s/.*HOST' *\: *[\']\(.*\)[\']\ *[\,]*\ */\1/g")" 
+   # Todo: Figure the Django port thing out with databases
+   #database_port="$(cat $(find . -name 'settings.py') | grep -xv " *#.*" | grep ".*PORT'\ *:.*" | sed 's/#.*//g' | sed "s/.*PORT' *\: *[\']\(.*\)[\']\ *[\,]*\ */\1/g")" 
+   # This is used for the django sites framework
+   if [ "$database_engine" != "mysql" ]; then
+        juju-log "Critical error. Django-rainbow only supports mysql but project $app_source_package_name uses $database_engine as its database engine"
+        exit 9;
+   fi
+   [ -z "$database_host" ] && database_host="localhost"
+                            # database_host=`unit-get private-address`
+   # Determine if a database needs to be created for this service
+   # Get the mysql password that was generated by the install hook
+   password=`cat /var/lib/juju/mysql.passwd`
+   existing_databases="$(mysql --user="root" --password="$password" --silent --execute 'show databases')"
+   database_exists=false
+   for db in $existing_databases; do
+       if [ "$db" = "$database_name" ]; then
+            juju-log "Found Database $database_name."
+            database_exists=true
+            break;
+       fi
+   done;
+   if ! $database_exists; then
+      juju-log "Creating new database"
+      mysqladmin --password="$password" create "$database_name"
+      echo "grant all on $database_name.* to '$database_user'@'$database_host' identified by '$database_pass'" | mysql --user=root --password="$password" --database="$database_name"
+   fi 
 
-     [ -z "$database_host" ] && database_host="localhost"
-                                # database_host=`unit-get private-address`
-
-
-     # Determine if a database needs to be created for this service
-     # Get the mysql password that was generated by the install hook
-     password=`cat /var/lib/juju/mysql.passwd`
-
-     existing_databases="$(mysql --user="root" --password="$password" --silent --execute 'show databases')"
-     database_exists=false
-     for db in $existing_databases; do
-         if [ "$db" = "$database_name" ]; then
-              juju-log "Found Database $database_name."
-              database_exists=true
-              break;
-        fi
-     done;
-     if ! $database_exists; then
-        juju-log "Creating new database"
-        mysqladmin --password="$password" create "$database_name"
+   if ( ! python manage.py syncdb --noinput 2>> $log_file_rev ); then
+        juju-log "Unable to sync database $database_name with project. Re-issuing credentials."
+        # User needs to be re-created if the database got corrupted. This happens whhen a database restore sets old user data.
+        echo "drop user '$database_user'@'$database_host'" | mysql --user=root --password="$password" --database="$database_name"
         echo "grant all on $database_name.* to '$database_user'@'$database_host' identified by '$database_pass'" | mysql --user=root --password="$password" --database="$database_name"
-     fi 
-
-     if ( ! python manage.py syncdb --noinput 2>> $log_file_rev ); then
-          juju-log "Unable to sync database $database_name with project. Re-issuing credentials."
-          # User needs to be re-created if the database got corrupted. This happens whhen a database restore sets old user data.
-          echo "drop user '$database_user'@'$database_host'" | mysql --user=root --password="$password" --database="$database_name"
-          echo "grant all on $database_name.* to '$database_user'@'$database_host' identified by '$database_pass'" | mysql --user=root --password="$password" --database="$database_name"
-          if ( ! python manage.py syncdb --noinput ); then
-              juju-log "Unable to set username and password from Django project. Quitting."
-              exit 9;
-          fi
-     fi
+        if ( ! python manage.py syncdb --noinput ); then
+            juju-log "Unable to set username and password from Django project. Quitting."
+            exit 9;
+        fi
+   fi
 
 fi  #Endo if [ "$($need_stored_entry)" -o "$(ls -l --time-style=+%m%d%Y%H%M%S $app_source_directory/settings.py | cut -d' ' -f6)" != "$repo_modifiy_time" ]
 
@@ -263,41 +275,48 @@ cp $package_directory/rainbow.conf/latest_vhost /etc/apache2/sites-available/vho
 site_id="$(cat $(find . -name 'settings.py') | grep -xv " *#.*" | grep ".*SITE_ID\ *=.*" | sed 's/#.*//g' | sed "s/.*SITE_ID *\= *\(.*\) */\1/g" | sed "s/'//g")"
 sites_used="$(cat $(find . -name 'settings.py') | grep -xv " *#.*" | grep ".*django.contrib.sites.*" | sed 's/#.*//g')"
 
-# Put a single site into the django_site table
+
+$upadate_sites || 
+# Create or load django sites with a fixture file
 if [ -n "$sites_used" -a -n "$site_id" ]; then
-     juju-log "Found django.contrib.sites in installed apps. Creating single table with id $site_id."
+     juju-log "Found django.contrib.sites in installed apps and a SITE_ID set for project $app_source_package_name."
      if [ -z "$project_site_name" -o -z "$project_site_domain" ]; then
           juju-log "Sites framwork has been defined in your settings.py file, but site domain and/or name was not provided in the config."
           juju-log "Skipping sites framwork. This can be added in the admin cosole as well."
-     else                   
-          juju-log "Adding the fixture table entry for $database_name in $package_directory/rainbow.conf/site_fixture.yaml"
+     elif $need_stored_entry || [ -n "$update_sites" ]; then                   
+          juju-log "Adding the fixture table entry for $database_name in $(pwd)/site_fixture.yaml"
           # Change the site table entry in the fixture file
+          touch site_fixture.yaml
           need_entry=true
+          IFS="$(echo -e "\n\r")"
           while read -r line; do
                 if [[ "${line}" =~ "pk: ${site_id}" ]]; then
                       need_entry=false
-                      echo "${line}" >> $package_directory/rainbow.conf/site_fixture.yaml.new
+                      echo "${line}" >> site_fixture.yaml.new
                       read -r fieldLine
-                      echo "${fieldLine}" >> $package_directory/rainbow.conf/site_fixture.yaml.new
+                      echo "${fieldLine}" >> site_fixture.yaml.new
                       read -r domainLine
-                      echo "${domainLine/: */: ${project_site_domain}}" >> $package_directory/rainbow.conf/site_fixture.yaml.new
+                      echo "${domainLine/: */: ${project_site_domain}}" >> site_fixture.yaml.new
                       read -r nameLine
-                      echo "${nameLine/: */: ${project_site_name}}" >> $package_directory/rainbow.conf/site_fixture.yaml.new
+                      echo "${nameLine/: */: ${project_site_name}}" >> site_fixture.yaml.new
                 else
-                      echo "$line" >> $package_directory/rainbow.conf/site_fixture.yaml.new
+                      echo "$line" >> site_fixture.yaml.new
                 fi
-          done <<< $package_directory/rainbow.conf/site_fixture.yaml
-
+          done < site_fixture.yaml
+          unset IFS
           if $need_entry; then
              echo '- model: sites.site
   pk: '"$site_id"'
   fields:
     domain: '"$project_site_domain"'
-    name: '"$project_site_name"'' >> $package_directory/rainbow.conf/site_fixture.yaml.new
+    name: '"$project_site_name"'' >> site_fixture.yaml.new
           fi
-          mv -f $package_directory/rainbow.conf/site_fixture.yaml $package_directory/rainbow.conf/site_fixture.yaml.old
-          mv -f $package_directory/rainbow.conf/site_fixture.yaml.new $package_directory/rainbow.conf/site_fixture.yaml
-          python manage.py loaddata
+          mv -f site_fixture.yaml site_fixture.yaml.old
+          mv -f site_fixture.yaml.new site_fixture.yaml
+          # Load our sites model from the new fixtures file for this project
+          ! python manage.py loaddata site_fixture.yaml 2>> $log_file_rev && juju-log "Unable to load fixture data from $(pwd)/site_fixture.yaml"
+          # Load any other fixtures located in the project 
+          ! python manage.py loaddata 2>> $log_file_rev && juju-log "Unable to load any other fixture files from project $app_source_package_name"
      fi
 fi
 

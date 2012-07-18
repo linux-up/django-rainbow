@@ -1,6 +1,6 @@
 django-rainbow:
     revision: '2'
-    apt-get-packages: 'sl'
+    apt-get-packages: ''
     pip-packages: ''
     git-packages: 'https://github.com/omab/django-social-auth.git'
     hg-packages: ''
@@ -12,10 +12,12 @@ django-rainbow:
     project-repo-password: 'n0nsense'
     project-site-name: 'A Cool Project'
     project-site-domain: 'besteverproj.com'
+    always-update-database: ''
+    always-update-sites-framework: ''
     project-apache2-vhost: |
            <VirtualHost *:80>
            #ServerAdmin me@localhost
-            DocumentRoot /home/sites/cool_project/
+            DocumentRoot /work/sites/cool_project/
             ServerName www.besteverproj.com
             ServerAlias *.besteverproj.com
             #DirectoryIndex 404.html
@@ -25,7 +27,7 @@ django-rainbow:
                     AllowOverride None
             </Directory>
 
-            <Directory /home/sites/cool_project/my_site/serve/>
+            <Directory /work/sites/cool_project/my_site/serve/>
                     Options Indexes FollowSymLinks MultiViews
                     AllowOverride None
                     Order allow,deny
@@ -56,19 +58,19 @@ django-rainbow:
             Allow from 127.0.0.0/255.0.0.0 ::1/128
             </Directory>
 
-            Alias /static "/home/sites/cool_project/my_site/serve"
+            Alias /static "/work/sites/cool_project/my_site/serve"
             <Location "/static">
                    SetHandler None
             </Location>
 
-            Alias /media "/home/sites/cool_project/uploads"
+            Alias /media "/work/sites/cool_project/uploads"
             <Location "/media">
                    SetHandler None
             </Location>
 
             WSGIDaemonProcess my_site processes=4 threads=15 display-name=%{GROUP}
             WSGIProcessGroup my_site
-            WSGIScriptAlias / /home/sites/cool_project/my_site_wsgi.py
+            WSGIScriptAlias / /work/sites/cool_project/my_site_wsgi.py
 
             </VirtualHost>
 

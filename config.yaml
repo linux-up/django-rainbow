@@ -10,7 +10,7 @@ options:
             only include what is needed for a basic Django web server and
             operation of this charm. Others can be added below. 
         type: string
-        default: 'apache2 python-mysqldb libapache2-mod-wsgi git mercurial pwgen python-pip'
+        default: apache2 python-mysqldb libapache2-mod-wsgi git mercurial pwgen python-pip python-setuptools
     apt-get-packages:
         description: |
             Debian packages to install (eg. python-django-south). This
@@ -117,6 +117,22 @@ options:
             running multiple sites toupled togther. Can be changed with the Django Admin system later.
             This option will be ignored if your do not have django.contrib.sites and a SITE_ID
             specified in the settings.py file.
+        type: string
+        default: ''
+    always-update-database: 
+        description: |
+            (Optional) Setting this option to non-empty will force a project database sync.
+            If empty, the project database will only update when the settings.py file is modified
+            from the current time stamp. 
+        type: string
+        default: ''
+    always-update-sites-framework: 
+        description: |
+            (Optional) Setting this option to non-empty will always update the project-site-name
+            and project-site-domain options from these yaml files into the django.sites framework.
+            Set this to empty and only the intial options from the first run of the config-changed
+            hook will be loaded. After that, the sites settings can be altered in the Django 
+            Admin console. This can be set later as well.
         type: string
         default: ''
     project-apache2-vhost:

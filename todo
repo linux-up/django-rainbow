@@ -1,6 +1,6 @@
 - Add bzr and/or svn to repository availiblity for project repository hosting
 - Add support for 'postgresql_psycopg2', 'postgresql', 'sqlite3' or 'oracle'
 - Add checking for sites framework which will prevent reduntant loaddata command.
-
+- Always use config to replace sites table?
 
 

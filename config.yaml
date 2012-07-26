@@ -58,8 +58,8 @@ options:
     re-install-mysql-server:
         description: |
             Set this to true (or non-empty), if you wish to have the mysql client core removed
-            and purged from the instance. This will effectively remove and replace the mysql root password.
-            with a random one. This should not remove the database, but no garenties!
+            and purged from the instance. This will effectively replace the mysql root password
+            with a random one. This should not remove the database entries, but no garenties!
             This executes when django-rainbow service is destroyed and then re-deloyed or the install
             hook is re-triggerd. Leave empty for false.
         type: string
@@ -67,21 +67,21 @@ options:
     purge-instance:
         description: |
             Set this to true (or non-empty), if you wish to have all packages
-            purged and re-installed. This includes any additional packages that are
-            listed above or have been installed previously. Do this if you have added
-            any packages with dependantcy issues native to this charm.
+            purged and re-installed upon re-installation of django-rainbow.
+            This includes any additional packages that are listed above or
+            have been installed previously with django-rainbow. Do this if you
+            have added any packages with dependency issues native to this charm or
+            you wish to replace off of your package config files with the default ones.
             This executes when django-rainbow service is destroyed and then re-deloyed
-            or the install hook is re-ran. 
-            Leave empty for false. 
+            or the install hook is re-ran. Leave empty for false. 
             ---------------------------------------------------------------------
             DOES NOT INCLUDE MYSQL! If you want to re-install the mysql client
             than set the re-install-mysql-server to true.
             ---------------------------------------------------------------------
         type: string
-        default: 'true'
+        default: ''
     project-repo-type:
         description: |
-            ! ( Change this in the your-project.yaml file to utilize multiple projects on one instance )
             This is the brand of repository versioning the project uses. Only hg for now...
             E.g. bzr, hg, git, svn, etc...
         type: string
@@ -132,7 +132,7 @@ options:
             and project-site-domain options from these yaml files into the django.sites framework.
             Set this to empty and only the intial options from the first run of the config-changed
             hook will be loaded. After that, the sites settings can be altered in the Django 
-            Admin console. This can be set later as well.
+            Admin console. This can be set later to start the sites framework updating with this config.
         type: string
         default: ''
     project-apache2-vhost:

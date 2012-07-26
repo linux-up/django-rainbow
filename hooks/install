@@ -109,9 +109,9 @@ if ! $package || [ -n "$reinstall_mysql" ]; then
      # Generate a strong root password for the mysql service, using /dev/urandom
      PASSWORD=`pwgen 10 1`
      # Store the password for later use by the rainbow-relation-changed hook for this service unit.
-     echo $PASSWORD > /var/lib/juju/mysql.passwd
-     chown root:root /var/lib/juju/mysql.passwd
-     chmod 660 /var/lib/juju/mysql.passwd
+     echo $PASSWORD > $package_directory/rainbow.conf/mysql.passwd
+     chown root:root $package_directory/rainbow.conf/mysql.passwd
+     chmod 660 $package_directory/rainbow.conf/mysql.passwd
      echo mysql-server-5.1 mysql-server/root_password password $PASSWORD | debconf-set-selections
      echo mysql-server-5.1 mysql-server/root_password_again password $PASSWORD | debconf-set-selections
      juju-log "mysql-server settings preseeded, now installing via apt-get"

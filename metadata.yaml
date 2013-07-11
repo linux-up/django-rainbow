@@ -8,6 +8,8 @@ description: |
    Your django-rainbow project file can be stored for future use, allowing anyone using juju a fail safe method to 
    develop and deploy your project without creating conflicting structure. Django-rainbow is a "Set it and forget it"
    platform leaving development issues with the developers :)
+categories:
+    - app-servers
 provides:
   rainbow:
     interface: django-rainbow
